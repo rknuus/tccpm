@@ -1,0 +1,221 @@
+# Conventions — File Formats, Paths & Rules
+
+Read this before doing any file operations across all phases.
+
+---
+
+## Directory Structure
+
+```
+.ccpm/
+├── initiatives/
+│   ├── <name>.md                    # Initiative document
+│   └── <name>/                      # Epics for this initiative
+│       └── <epic-name>/             # Epic directory
+│           ├── epic.md              # Epic document
+│           ├── <N>.md               # Task files (N = global ID)
+│           └── updates/             # Work-in-progress updates
+│               └── <issue_N>/
+│                   └── stream-A.md  # Per-agent progress
+├── archive/                         # Completed initiatives (moved on merge)
+│   └── <name>/                      # Archived initiative (same structure as initiatives/)
+│       ├── <name>.md                # Initiative document
+│       └── <epic-name>/             # Epic directory (preserved)
+│           ├── epic.md
+│           └── <N>.md
+└── next-id                          # Global task ID counter
+```
+
+---
+
+## Root Anchoring
+
+All `.ccpm/` paths are relative to the git project root (`git rev-parse --show-toplevel`). To prevent `.ccpm/` from being created in a subdirectory:
+
+**In bash scripts**: Every script that accesses `.ccpm/` must `cd` to the git root as its first executable statement:
+
+```bash
+cd "$(git rev-parse --show-toplevel)" || exit 1
+```
+
+**In sourced libraries** (e.g., `paths-lib.sh`): Do not `cd` — the caller is responsible for being at the root before sourcing.
+
+**In phase Preflight sections** (mandatory first step): Before any `.ccpm/` access, run `git rev-parse --show-toplevel` and confirm the output matches the current working directory. If it does not, `cd` to the project root before proceeding. Do not use `$()` — run the command directly and read the output.
+
+---
+
+## Command Authorization
+
+An explicit `@ccpm` command is authorization to proceed. Do not ask "shall I proceed?" or "approve this plan?" when the user has already given a command.
+
+- **Proceed by default**: `@ccpm decompose` means create the task files. `@ccpm initiative-go` means run all phases. Show the result, not a preview.
+- **Report, don't ask**: After completing work, report what was done (e.g., "Created 5 tasks for epic: auth"). Do not present a plan and wait for approval.
+- **Prompt only when destructive or ambiguous**: Overwriting existing files, merging with incomplete epics, or failing tests warrant a confirmation. Routine creation does not.
+
+---
+
+## Task ID Counter
+
+The file `.ccpm/next-id` contains the next available globally unique task ID as a plain integer. Before creating any task files, read this value. After creating all tasks, update it to the next unused value.
+
+Read `.ccpm/next-id` (via the Read tool) to get the next available ID. After creating all tasks, write the next unused value:
+
+```bash
+echo "<new_next_id>" > .ccpm/next-id
+```
+
+---
+
+## Frontmatter Schemas
+
+### Initiative (.ccpm/initiatives/<name>.md)
+```yaml
+---
+name: <feature-name>        # kebab-case, matches filename
+description: <one-liner>    # used in lists and summaries
+status: backlog | in-progress | complete
+created: <ISO 8601>         # date -u +"%Y-%m-%dT%H:%M:%SZ"
+---
+```
+
+### Epic (.ccpm/initiatives/<initiative>/<name>/epic.md)
+```yaml
+---
+name: <feature-name>
+status: backlog | in-progress | completed
+created: <ISO 8601>
+updated: <ISO 8601>
+progress: 0%                # recalculated when tasks close
+initiative: .ccpm/initiatives/<initiative>/<name>.md
+depends_on: []              # list of epic names that must complete first
+github: https://github.com/<owner>/<repo>/issues/<N>  # set on sync
+---
+```
+
+### Task (.ccpm/initiatives/<initiative>/<name>/<N>.md)
+```yaml
+---
+name: <Task Title>
+status: open | in-progress | closed
+created: <ISO 8601>
+updated: <ISO 8601>
+github: https://github.com/<owner>/<repo>/issues/<N>  # set on sync
+depends_on: []              # issue numbers this must wait for
+parallel: true              # can run concurrently with non-conflicting tasks
+conflicts_with: []          # issue numbers that touch the same files
+---
+```
+
+### Progress (.ccpm/initiatives/<initiative>/<name>/updates/<N>/progress.md)
+```yaml
+---
+issue: <N>
+started: <ISO 8601>
+last_sync: <ISO 8601>
+completion: 0%
+---
+```
+
+---
+
+## Datetime Rule
+
+Always get real current datetime from the system — never use placeholder text:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+---
+
+## Frontmatter Update Pattern
+
+When updating a single frontmatter field in an existing file:
+```bash
+sed -i.bak "/^<field>:/c\\<field>: <value>" <file>
+rm <file>.bak
+```
+
+When stripping frontmatter to get body content for GitHub:
+```bash
+sed '1,/^---$/d; 1,/^---$/d' <file> > /tmp/body.md
+```
+
+---
+
+## GitHub Operations
+
+### Repository Safety Check (run before any write operation)
+
+Run the following and read the output:
+```bash
+git remote get-url origin 2>/dev/null || echo ""
+```
+
+If the URL contains `automazeio/ccpm`, stop: "Cannot write to the CCPM template repository." Otherwise, extract the `OWNER/REPO` slug from the URL (strip `github.com[:/]` prefix and `.git` suffix) and use it as `REPO` in subsequent `gh` commands.
+
+### Authentication
+Don't pre-check authentication. Run the `gh` command and handle failure:
+```bash
+gh <command> || echo "❌ GitHub CLI failed. Run: gh auth login"
+```
+
+### Getting Issue Numbers
+```bash
+# From a task file's github field:
+grep 'github:' <file> | grep -oE '[0-9]+$'
+```
+
+---
+
+## Git / Worktree Conventions
+
+- One branch per epic: `epic/<name>`
+- Worktrees live at `../epic-<name>/` (sibling to project root)
+- Always start branches from an up-to-date main:
+  ```bash
+  git checkout main && git pull origin main
+  git worktree add ../epic-<name> -b epic/<name>
+  ```
+- Commit format inside epics: `Issue #<N>: <description>`
+- Never use `--force` in any git operation
+- For git operations inside worktrees, use `ccpm-worktree-git.sh` to avoid approval prompts:
+  ```bash
+  bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-worktree-git.sh" ../epic-<name> status
+  ```
+
+---
+
+## Naming Conventions
+
+- Feature names: kebab-case, lowercase, letters/numbers/hyphens, starts with a letter
+- Task files before sync: use globally unique IDs from `.ccpm/next-id` (e.g., `42.md`, `43.md`)
+- Task files after sync: renamed to GitHub issue number (e.g., `1234.md`)
+- Labels applied on sync: `epic`, `epic:<name>`, `feature` (for epics); `task`, `epic:<name>` (for tasks)
+
+---
+
+## Epic Progress Calculation
+
+Count total task files and closed task files separately:
+```bash
+ls .ccpm/initiatives/<initiative>/<name>/[0-9]*.md 2>/dev/null | wc -l
+```
+```bash
+grep -l '^status: closed' .ccpm/initiatives/<initiative>/<name>/[0-9]*.md 2>/dev/null | wc -l
+```
+
+Then calculate progress as `closed * 100 / total`.
+
+Update epic frontmatter when any task closes.
+
+---
+
+## Local-Only Mode
+
+CCPM works without GitHub. If `gh` CLI is not installed or not authenticated:
+- All GitHub sync operations are skipped
+- Task files in `.ccpm/` are the source of truth
+- Git branches still provide epic isolation
+- `git push/pull` operations fail silently (local branches only)
+
+To enable GitHub integration later, install `gh` and run `bash references/scripts/init.sh`.

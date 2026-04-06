@@ -66,18 +66,36 @@ created: <run: date -u +"%Y-%m-%dT%H:%M:%SZ">
 ✅ Initiative created
 
 .ccpm/initiatives/<name>/<name>.md
-
-Ready to create technical epic? Say: parse the <name> initiative
 ```
 
-**Next steps after creating an initiative:**
-- For single-epic features: continue to Structure phase (`references/structure.md`)
-- For multi-epic features: decompose into epics (`references/initiative.md`)
+**Recommend next step**: Assess the initiative you just wrote and recommend one of three paths. Use these proxy measures:
+- **User story count**: how many distinct user stories
+- **Functional requirement count**: how many requirements
+- **Scope boundary complexity**: how large/detailed is "Out of Scope"
+- **Cross-subsystem spread**: does the work span multiple distinct technical areas
+- **External dependencies**: how many external systems or teams involved
+- **Deliverable count**: do success criteria imply one deliverable or several distinct ones
 
-**Next steps to suggest:**
-- "Parse this into a technical epic: parse the <name> initiative"
-- "Decompose into multiple epics: decompose the <name> initiative into epics"
-- "Edit or refine: let's revise the <name> initiative"
+Based on the assessment, recommend one tier:
+
+| Tier | When to recommend | Command |
+|------|-------------------|---------|
+| **initiative-go** | Very small, super-clear scope. 1-2 user stories, single deliverable, no cross-subsystem complexity. May produce as few as 1 task. | `@ccpm initiative-go <name>` |
+| **Single-epic parse** | Medium scope. Cohesive single deliverable but needs task-level planning and review. 3-5 user stories, moderate complexity. | `parse the <name> initiative` |
+| **Multi-epic decompose** | Large scope. Multiple distinct deliverables or subsystems, many user stories, complex dependencies between areas. | `decompose the <name> initiative into epics` |
+
+Present the recommendation concisely — one line of assessment, then the options:
+
+```
+**Recommendation**: <one-line assessment, e.g., "Small, focused initiative — single deliverable with clear scope">
+
+  ➤ @ccpm initiative-go <name>                       ← recommended
+    parse the <name> initiative
+    decompose the <name> initiative into epics
+    let's revise the <name> initiative
+```
+
+Always list all four options (the three tiers plus "revise"). Mark the recommended one with "← recommended". The user decides which to use.
 
 ---
 

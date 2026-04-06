@@ -1,6 +1,6 @@
 # Initiative — Multi-Epic Coordination
 
-This phase covers decomposing an initiative into multiple epics, executing them in dependency order, and merging everything back to main.
+This phase covers decomposing an initiative into multiple epics, executing them in dependency order, merging everything back to main, cancelling initiatives, and adding epics to running initiatives.
 
 ---
 
@@ -306,6 +306,135 @@ Cleanup:
 - Merge conflicts: abort the merge, report conflicted files, and suggest manual resolution.
 - Incomplete epics: warn but allow the user to proceed with confirmation.
 - Test failures: warn but allow the user to proceed with confirmation.
+
+---
+
+## Initiative Cancel
+
+**Trigger**: User wants to abandon an initiative, or says "cancel initiative <name>", "abandon the <name> initiative", "drop initiative <name>".
+
+### Preflight
+- **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
+- Check for uncommitted changes on `initiative/<name>` and any related `epic/*` branches. If found, warn the user with details and stop — the user must resolve (commit, stash, or discard) before cancelling.
+
+### Process
+
+**Step 1 — Confirm and choose disposition.** Ask the user:
+- "Cancel initiative `<name>`? This will delete all branches. Remove files (default) or archive them?"
+- If the user provides a reason, record it.
+
+**Step 2 — Switch to main.** If currently on the initiative branch or an epic branch:
+```bash
+git checkout main
+```
+
+**Step 3 — Delete epic branches.** For each `epic/*` branch belonging to this initiative:
+```bash
+git branch -D epic/<epic-name>
+git push origin --delete epic/<epic-name> 2>/dev/null || true
+```
+Warn about unmerged commits but proceed — we're cancelling.
+
+**Step 4 — Delete the initiative branch:**
+```bash
+git branch -D initiative/<name>
+git push origin --delete initiative/<name> 2>/dev/null || true
+```
+
+**Step 5 — Remove or archive the initiative directory:**
+- **Remove** (default): delete `.ccpm/initiatives/<name>/`
+- **Archive**: update the initiative frontmatter with `status: cancelled`, `cancelled: <datetime>`, and optionally `cancel_reason: <reason>`. Then move:
+  ```bash
+  mkdir -p .ccpm/archive
+  mv .ccpm/initiatives/<name> .ccpm/archive/<name>
+  ```
+
+### Post-completion
+
+```
+Initiative cancelled: <name>
+
+  Branches deleted: initiative/<name>, epic/<epic-1>, epic/<epic-2>
+  Files: removed | archived to .ccpm/archive/<name>
+```
+
+### Error handling
+- Uncommitted changes: stop and list which branches have dirty state. Do not proceed.
+- Branch doesn't exist: skip deletion for that branch, continue with the rest.
+
+---
+
+## Add Epic
+
+**Trigger**: User wants to add a new epic to a running initiative, or says "add epic <epic-name> to <initiative-name>", "new epic <epic-name> for <initiative-name>".
+
+### Preflight
+- **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
+- Verify `initiative/<name>` branch exists. If not: "No branch for initiative: `<name>`"
+- Verify `.ccpm/initiatives/<name>/<epic-name>/` does not already exist. If it does: "Epic `<epic-name>` already exists in initiative `<name>`"
+- Check for uncommitted changes — block if dirty.
+
+### Process
+
+**Step 1 — Checkout the initiative branch:**
+```bash
+git checkout initiative/<name>
+```
+
+**Step 2 — Create the epic outline.** Create the directory and file:
+
+Directory: `.ccpm/initiatives/<name>/<epic-name>/`
+File: `.ccpm/initiatives/<name>/<epic-name>/epic.md`
+
+Use the same format as Initiative Decompose Step 4:
+
+```markdown
+---
+name: <epic-name>
+status: backlog
+created: <run: date -u +"%Y-%m-%dT%H:%M:%SZ">
+progress: 0%
+initiative: .ccpm/initiatives/<name>/<name>.md
+depends_on: [<list of completed epic names>]
+---
+
+# Epic: <epic-name>
+
+## Overview
+Brief summary of what this epic covers and why it was added.
+
+## Scope
+- Key deliverables and boundaries
+
+## Dependencies
+- All previously completed epics in this initiative
+```
+
+Set `depends_on` to all epics with status `completed` — the new epic builds on their merged work.
+
+**Step 3 — Commit the new epic file** on the initiative branch.
+
+**Step 4 — Create the epic branch:**
+```bash
+git checkout -b epic/<epic-name>
+```
+
+### Post-completion
+
+```
+Epic added to initiative: <name>
+
+.ccpm/initiatives/<name>/<epic-name>/epic.md
+
+  Branch: epic/<epic-name> (from initiative/<name>)
+  Ready to decompose: decompose the <epic-name> epic
+```
+
+### Error handling
+- If the initiative has already been merged to main, refuse: "Initiative `<name>` is already merged. Create a new initiative instead."
+- If epic creation fails, clean up the partial directory.
 
 ---
 

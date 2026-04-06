@@ -73,8 +73,10 @@ echo "<new_next_id>" > .ccpm/next-id
 ---
 name: <feature-name>        # kebab-case, matches filename
 description: <one-liner>    # used in lists and summaries
-status: backlog | in-progress | complete
+status: backlog | in-progress | complete | cancelled
 created: <ISO 8601>         # date -u +"%Y-%m-%dT%H:%M:%SZ"
+cancelled: <ISO 8601>       # set on cancel (optional)
+cancel_reason: <text>        # why it was cancelled (optional)
 ---
 ```
 

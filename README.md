@@ -6,7 +6,7 @@
 &nbsp;
 [![MIT License](https://img.shields.io/badge/License-MIT-28a745)](LICENSE)
 
-### Spec-driven development for AI agents — ship better using Initiatives, Git worktrees, and multiple agents running in parallel.
+### Spec-driven development for AI agents — ship better using Initiatives and multiple agents running in parallel.
 
 Stop losing context. Stop blocking on tasks. Stop shipping bugs. TCCPM turns Initiatives into epics, epics into tasks, and tasks into production code — with full traceability at every step.
 
@@ -174,7 +174,7 @@ Breaks each epic into concrete, actionable tasks (up to 10 per epic) with accept
 @ccpm start the epic-name epic
 @ccpm what's next
 ```
-Specialized agents implement tasks while maintaining progress updates. Each epic gets its own branch under the initiative branch.
+Specialized agents implement tasks while maintaining progress updates. All tasks execute on the initiative branch.
 
 ### 5. Track and Merge
 
@@ -182,7 +182,7 @@ Specialized agents implement tasks while maintaining progress updates. Each epic
 @ccpm what's our status
 @ccpm merge the feature-name initiative
 ```
-Merges all epic branches into the initiative branch, then merges the initiative branch into main. Validates epic completion and runs tests before merging.
+Merges the initiative branch into main. Validates task completion and runs tests before merging.
 
 ## Usage
 
@@ -200,7 +200,6 @@ Check status:        @ccpm what's our status / @ccpm standup
 What's next:         @ccpm what should I work on next
 What's blocked:      @ccpm what's blocked
 Merge initiative:    @ccpm merge the X initiative
-Merge epic:          @ccpm merge the X epic
 Create context:      @ccpm create context
 Load context:        @ccpm prime context
 Search:              @ccpm search for X
@@ -225,7 +224,7 @@ A single "Implement user authentication" issue isn't one task. It's...
 - **Agent 4**: UI components and forms
 - **Agent 5**: Test suites and documentation
 
-All running **simultaneously** in the same worktree.
+All running **simultaneously** on the initiative branch.
 
 ### The Math of Velocity
 
@@ -263,7 +262,7 @@ Your main conversation becomes the conductor, not the orchestra.
 
 # Watch the magic
 # 12 agents working across 3 issues
-# All in: ../epic-memory-system/
+# All on: initiative/memory-system branch
 
 # One clean merge when done
 @ccpm merge the memory-system initiative
@@ -364,7 +363,6 @@ Add these to `~/.claude/settings.json` under `permissions.allow`. These commands
       "Bash(git remote:*)",
       "Bash(git show:*)",
       "Bash(git status:*)",
-      "Bash(git worktree:*)",
       "Bash(basename:*)",
       "Edit(.ccpm/**)",
       "Read(.ccpm/**)",
@@ -407,7 +405,7 @@ Add these to `.claude/settings.local.json` in your project root. These commands 
 
 | Tier | Where | What |
 |------|-------|------|
-| **Global** | `~/.claude/settings.json` | Read-only utilities, `mkdir`, git read-only, `git worktree`, `basename`, `.ccpm/**` file ops |
+| **Global** | `~/.claude/settings.json` | Read-only utilities, `mkdir`, git read-only, `basename`, `.ccpm/**` file ops |
 | **Project** | `.claude/settings.local.json` | Git write ops, `make`, `sed` for frontmatter, `mv` for task renames, `gh` for GitHub, TCCPM helper scripts |
 | **Prompt** | Not pre-approved | Destructive operations (`rm -rf`, `git push --force`, `git reset --hard`) |
 

@@ -37,6 +37,18 @@ git push -u origin initiative/<name> 2>/dev/null || echo "No remote — continui
 
 If the branch already exists, check it out instead of creating.
 
+**Step 3b — Create worktree (if enabled).** Read the initiative's `worktree:` frontmatter field. If `true`:
+
+```bash
+REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
+WORKTREE_PATH="../${REPO_BASENAME}-<name>"
+git worktree add "$WORKTREE_PATH" initiative/<name>
+```
+
+If the worktree already exists at that path, skip with a warning: "Worktree already exists at `<path>` — skipping creation."
+
+Report the worktree path in the post-completion output when created.
+
 **Step 4 — Create epic outlines.** For each epic, create the directory and file:
 
 Directory: `.ccpm/initiatives/<name>/<epic-name>/`
@@ -120,11 +132,7 @@ This is a convenience wrapper that runs decompose, epic-decompose, and epic-star
 - Create numbered task files using IDs from `.ccpm/next-id`
 - Update the epic with a task summary section
 
-**Phase 3 — Start all epics** sequentially following the Epic Start All workflow below. For each epic in dependency order:
-- Create `epic/<name>` branch from `initiative/<name>`
-- Launch agents for ready tasks
-- Wait for completion
-- Merge back into `initiative/<name>`
+**Phase 3 — Execute all tasks** on the initiative branch following the Starting an Initiative workflow in `references/execute.md`. Collect tasks from all epics, resolve dependencies across epics, and launch agents for ready tasks. Wait for all tasks to complete.
 
 If any phase fails, stop and report what completed successfully. Earlier phases' artifacts (epic files, task files) remain intact for manual retry.
 
@@ -142,8 +150,8 @@ Phase 1: Decompose ✓
 Phase 2: Epic Decompose ✓
   - Total tasks: N (parallel: N | sequential: N)
 
-Phase 3: Start All ✓
-  - Epics completed: N/N
+Phase 3: Execute All ✓
+  - Tasks completed: N
   - Agents launched: N
 
 Ready to merge: merge the <name> initiative
@@ -152,13 +160,13 @@ Ready to merge: merge the <name> initiative
 ### Error handling
 - Phase 1 failure: stop immediately — "❌ Decompose failed. Check `.ccpm/initiatives/<name>/<name>.md`"
 - Phase 2 failure: stop — "❌ Epic decompose failed for `<epic-name>`. Task files may be partial."
-- Phase 3 failure: stop — "❌ Epic `<epic-name>` failed. Earlier epics are merged in `initiative/<name>`."
+- Phase 3 failure: stop — "❌ Task execution failed. Check task status in `.ccpm/initiatives/<name>/`."
 
 ---
 
 ## Epic Start All
 
-**Trigger**: User wants to start all epics in an initiative sequentially, running autonomously until all complete.
+**Trigger**: User wants to start all epics in an initiative, running autonomously until all complete.
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
@@ -174,34 +182,25 @@ Ready to merge: merge the <name> initiative
 - Epics depending on others come after their dependencies
 - If circular dependencies detected: "❌ Circular epic dependency: `<details>`"
 
-Report the planned order before starting.
+Report the planned order before starting. This determines task priority — tasks from earlier epics are preferred when choosing what to launch next.
 
-**Step 2 — Execute each epic** in dependency order. For each epic:
+**Step 2 — Prepare and execute tasks** on the `initiative/<name>` branch.
 
-**(a) Decompose if needed.** If no task files (`[0-9]*.md`) exist in the epic directory, decompose the epic into tasks first (see `references/structure.md`).
+**(a) Decompose if needed.** For each epic, if no task files (`[0-9]*.md`) exist in the epic directory, decompose the epic into tasks first (see `references/structure.md`).
 
-**(b) Start the epic.** Create the epic branch from the initiative branch:
-```bash
-git checkout initiative/<name>
-git checkout -b epic/<epic-name>
+**(b) Collect all task files** from all epics: `.ccpm/initiatives/<name>/*/[0-9]*.md`
+
+**(c) Build unified dependency graph** across all epics. Resolve cross-epic dependencies using task IDs.
+
+**(d) Launch agents for ready tasks** on the `initiative/<name>` branch following the Starting an Initiative workflow in `references/execute.md`. Identify ready tasks from frontmatter (`status`, `depends_on`, `parallel`).
+
+**(e) As tasks complete, launch newly unblocked tasks.** When all tasks for an epic finish, update that epic's status to "completed" in its frontmatter. Report progress:
 ```
-
-Identify ready tasks from frontmatter (`status`, `depends_on`, `parallel`). Launch agents for ready tasks following agent coordination rules (see `references/execute.md`). Wait for all agents to complete, launching blocked tasks as dependencies finish.
-
-**(c) Merge the epic.** After all tasks complete:
-```bash
-git checkout initiative/<name>
-git merge epic/<epic-name> --no-ff -m "Merge epic: <epic-name>"
-git branch -d epic/<epic-name>
-```
-
-Update the epic's status to "completed" in its frontmatter. Report progress:
-```
-✅ Epic N/total complete: <epic-name>
+✅ Epic complete: <epic-name> (N tasks)
    Remaining: M epics
 ```
 
-**Step 3 — Run tests.** After all epics are merged into the initiative branch, run the project test suite.
+**Step 3 — Run tests.** After all tasks complete on the initiative branch, run the project test suite.
 
 ### Post-completion
 
@@ -212,15 +211,15 @@ Epics completed:
   ✅ <epic-1>: N tasks
   ✅ <epic-2>: N tasks
 
-All epic branches merged into: initiative/<name>
+Total tasks: N
 Ready to merge to main: merge the <name> initiative
 ```
 
 ### Error handling
-- If an epic fails (agent errors, merge conflicts, test failures), stop immediately.
+- If a task fails (agent errors, test failures), stop immediately.
 - Report which epics completed, which failed, and which were not started.
-- The initiative branch contains all successfully merged epics up to the failure point.
-- Suggest fixing the issue and retrying the failed epic, or merging what is done.
+- All completed work remains on `initiative/<name>`.
+- Suggest fixing the issue and retrying the failed task, or merging what is done.
 
 ---
 
@@ -236,24 +235,11 @@ Ready to merge to main: merge the <name> initiative
 
 ### Process
 
-**Step 1 — Merge pending epic branches.** Check out the initiative branch and look for unmerged epic branches:
+**Step 1 — Check out the initiative branch** and pull latest:
 ```bash
 git checkout initiative/<name>
+git pull origin initiative/<name> 2>/dev/null || true
 ```
-
-For each `epic/*` branch, check for unmerged commits:
-```bash
-git log initiative/<name>..epic/<epic-name> --oneline
-```
-
-If unmerged commits exist, merge each epic branch:
-```bash
-git merge epic/<epic-name> --no-ff -m "Merge epic: <epic-name>"
-```
-
-If merge conflicts occur, abort and stop: "❌ Merge conflict merging `epic/<epic-name>`. Resolve manually, then retry."
-
-Clean up merged epic branches.
 
 **Step 2 — Validate epic completion.** Read each `epic.md` under `.ccpm/initiatives/<name>/*/epic.md`. If any epic has status != "completed", warn the user and confirm before continuing.
 
@@ -270,6 +256,12 @@ git merge initiative/<name> --no-ff -m "Merge initiative: <name>
 Completed epics:
 - <epic-1>
 - <epic-2>"
+```
+
+**Step 5b — Remove worktree (if present).** Read the initiative's `worktree:` field. If `true`:
+```bash
+REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
+git worktree remove "../${REPO_BASENAME}-<name>" 2>/dev/null || true
 ```
 
 **Step 6 — Post-merge cleanup:**
@@ -299,7 +291,6 @@ This moves the entire initiative directory tree (initiative MD, epic dirs, task 
 Cleanup:
   ✓ Initiative archived to .ccpm/archive/<name>
   ✓ Initiative branch deleted
-  ✓ Epic branches deleted
 ```
 
 ### Error handling
@@ -316,33 +307,32 @@ Cleanup:
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
-- Check for uncommitted changes on `initiative/<name>` and any related `epic/*` branches. If found, warn the user with details and stop — the user must resolve (commit, stash, or discard) before cancelling.
+- Check for uncommitted changes on `initiative/<name>`. If found, warn the user with details and stop — the user must resolve (commit, stash, or discard) before cancelling.
 
 ### Process
 
 **Step 1 — Confirm and choose disposition.** Ask the user:
-- "Cancel initiative `<name>`? This will delete all branches. Remove files (default) or archive them?"
+- "Cancel initiative `<name>`? This will delete the initiative branch. Remove files (default) or archive them?"
 - If the user provides a reason, record it.
 
-**Step 2 — Switch to main.** If currently on the initiative branch or an epic branch:
+**Step 2 — Switch to main.** If currently on the initiative branch:
 ```bash
 git checkout main
 ```
 
-**Step 3 — Delete epic branches.** For each `epic/*` branch belonging to this initiative:
+**Step 2b — Remove worktree (if present).** Read the initiative's `worktree:` field. If `true`:
 ```bash
-git branch -D epic/<epic-name>
-git push origin --delete epic/<epic-name> 2>/dev/null || true
+REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
+git worktree remove "../${REPO_BASENAME}-<name>" 2>/dev/null || true
 ```
-Warn about unmerged commits but proceed — we're cancelling.
 
-**Step 4 — Delete the initiative branch:**
+**Step 3 — Delete the initiative branch:**
 ```bash
 git branch -D initiative/<name>
 git push origin --delete initiative/<name> 2>/dev/null || true
 ```
 
-**Step 5 — Remove or archive the initiative directory:**
+**Step 4 — Remove or archive the initiative directory:**
 - **Remove** (default): delete `.ccpm/initiatives/<name>/`
 - **Archive**: update the initiative frontmatter with `status: cancelled`, `cancelled: <datetime>`, and optionally `cancel_reason: <reason>`. Then move:
   ```bash
@@ -355,7 +345,7 @@ git push origin --delete initiative/<name> 2>/dev/null || true
 ```
 Initiative cancelled: <name>
 
-  Branches deleted: initiative/<name>, epic/<epic-1>, epic/<epic-2>
+  Branch deleted: initiative/<name>
   Files: removed | archived to .ccpm/archive/<name>
 ```
 
@@ -416,11 +406,6 @@ Set `depends_on` to all epics with status `completed` — the new epic builds on
 
 **Step 3 — Commit the new epic file** on the initiative branch.
 
-**Step 4 — Create the epic branch:**
-```bash
-git checkout -b epic/<epic-name>
-```
-
 ### Post-completion
 
 ```
@@ -428,7 +413,6 @@ Epic added to initiative: <name>
 
 .ccpm/initiatives/<name>/<epic-name>/epic.md
 
-  Branch: epic/<epic-name> (from initiative/<name>)
   Ready to decompose: decompose the <epic-name> epic
 ```
 
@@ -438,22 +422,56 @@ Epic added to initiative: <name>
 
 ---
 
+## Worktree Enable
+
+**Trigger**: User wants to enable a worktree for an existing initiative, or says "@ccpm worktree enable <name>".
+
+### Preflight
+- **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
+- Verify `initiative/<name>` branch exists. If not: "No branch for initiative: `<name>`"
+- Read initiative frontmatter: if `worktree:` is already `true`, check if worktree exists at expected path. If it does: "Worktree already active at `<path>`."
+- Check that no worktree already exists at the target path.
+
+### Process
+
+**Step 1 — Create worktree:**
+```bash
+REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
+WORKTREE_PATH="../${REPO_BASENAME}-<name>"
+git worktree add "$WORKTREE_PATH" initiative/<name>
+```
+
+**Step 2 — Update initiative frontmatter.** Set `worktree: true` in `.ccpm/initiatives/<name>/<name>.md`.
+
+**Step 3 — Update existing epic files.** For each epic under `.ccpm/initiatives/<name>/*/epic.md`, set `worktree_path: ../<repo-basename>-<name>` in frontmatter.
+
+**Step 4 — Commit the frontmatter updates** on the initiative branch.
+
+### Post-completion
+
+```
+Worktree enabled for initiative: <name>
+
+  Path: ../<repo-basename>-<name>
+  Branch: initiative/<name>
+
+  Updated files:
+    .ccpm/initiatives/<name>/<name>.md (worktree: true)
+    .ccpm/initiatives/<name>/<epic>/epic.md (worktree_path set)
+```
+
+---
+
 ## Branching Model
 
-Initiatives use a two-level branching model:
+Initiatives use a single-branch model:
 
 ```
 main
- └── initiative/<name>           ← created during decompose
-      ├── epic/<epic-1>          ← created during epic start
-      ├── epic/<epic-2>          ← created during epic start
-      └── epic/<epic-3>          ← created during epic start
+ └── initiative/<name>           ← all work happens here
 ```
 
-- Epic branches are created from `initiative/<name>`, not from `main`.
-- Completed epics merge back into `initiative/<name>`.
-- When all epics are done, `initiative/<name>` merges into `main`.
-
-This keeps the initiative's work isolated from main until all epics are integrated and tested together.
+All tasks from all epics execute directly on the initiative branch. Epic directories organize tasks for planning; the initiative branch is the single execution context. When all tasks are complete, `initiative/<name>` merges into `main`.
 
 See `references/conventions.md` for frontmatter schemas and path conventions.

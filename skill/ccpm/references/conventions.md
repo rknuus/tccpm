@@ -8,6 +8,7 @@ Read this before doing any file operations across all phases.
 
 ```
 .ccpm/
+├── settings.yml                     # Project-level CCPM settings (optional)
 ├── initiatives/
 │   ├── <name>.md                    # Initiative document
 │   └── <name>/                      # Epics for this initiative
@@ -75,6 +76,7 @@ name: <feature-name>        # kebab-case, matches filename
 description: <one-liner>    # used in lists and summaries
 status: backlog | in-progress | complete | cancelled
 created: <ISO 8601>         # date -u +"%Y-%m-%dT%H:%M:%SZ"
+worktree: false              # optional; true = use git worktree for this initiative
 cancelled: <ISO 8601>       # set on cancel (optional)
 cancel_reason: <text>        # why it was cancelled (optional)
 ---
@@ -91,6 +93,7 @@ progress: 0%                # recalculated when tasks close
 initiative: .ccpm/initiatives/<initiative>/<name>.md
 depends_on: []              # list of epic names that must complete first
 github: https://github.com/<owner>/<repo>/issues/<N>  # set on sync
+worktree_path:               # optional; path to initiative worktree (derived)
 ---
 ```
 
@@ -105,6 +108,7 @@ github: https://github.com/<owner>/<repo>/issues/<N>  # set on sync
 depends_on: []              # issue numbers this must wait for
 parallel: true              # can run concurrently with non-conflicting tasks
 conflicts_with: []          # issue numbers that touch the same files
+worktree_path:               # optional; inherited from epic
 ---
 ```
 
@@ -169,21 +173,28 @@ grep 'github:' <file> | grep -oE '[0-9]+$'
 
 ---
 
-## Git / Worktree Conventions
+## Git / Branch Conventions
 
-- One branch per epic: `epic/<name>`
-- Worktrees live at `../epic-<name>/` (sibling to project root)
+- One branch per initiative: `initiative/<name>`
 - Always start branches from an up-to-date main:
   ```bash
   git checkout main && git pull origin main
-  git worktree add ../epic-<name> -b epic/<name>
+  git checkout -b initiative/<name>
   ```
-- Commit format inside epics: `Issue #<N>: <description>`
+- Commit format: `Issue #<N>: <description>`
 - Never use `--force` in any git operation
-- For git operations inside worktrees, use `ccpm-worktree-git.sh` to avoid approval prompts:
-  ```bash
-  bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-worktree-git.sh" ../epic-<name> status
-  ```
+
+## Worktree Conventions
+
+When `worktree: true` is set on an initiative, a git worktree is created as a sibling directory:
+
+- **Path**: `../<repo-basename>-<initiative-name>/` (sibling to project root)
+- **Created**: during initiative decompose or via `@ccpm worktree enable <name>`
+- **Scope**: one worktree per initiative — all epics share it
+- **Cleanup**: removed via `git worktree remove` during initiative merge or cancel
+- **Creation**: `git worktree add ../<repo-basename>-<name> initiative/<name>`
+
+Worktrees are optional. Initiatives without `worktree: true` use plain branches (existing behavior).
 
 ---
 

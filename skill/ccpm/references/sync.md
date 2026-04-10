@@ -111,25 +111,7 @@ Then use the Edit tool to update `github:` and `updated:` fields in epic.md and 
 - `github: https://github.com/<REPO>/issues/<number>`
 - `updated: <timestamp>`
 
-**Step 5 — Create worktree for the epic:**
-
-Determine the parent branch using the same detection as execute.md. Run and read the output:
-```bash
-bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-find.sh" .ccpm/initiatives -path "*/<name>/epic.md" | head -1
-```
-
-If a result is found, extract the initiative name (first path segment after `.ccpm/initiatives/`). Then check if `initiative/<initiative_name>` branch exists:
-```bash
-git branch -a | grep -q "initiative/<initiative_name>"
-```
-
-Use the initiative branch as `PARENT_BRANCH` if it exists, otherwise use `main`. Then:
-```bash
-git checkout <PARENT_BRANCH> && git pull origin <PARENT_BRANCH> 2>/dev/null || true
-git worktree add ../epic-<name> -b epic/<name>
-```
-
-**Step 6 — Create github-mapping.md:**
+**Step 5 — Create github-mapping.md:**
 ```markdown
 # GitHub Issue Mapping
 Epic: #<N> - https://github.com/<repo>/issues/<N>
@@ -143,8 +125,7 @@ Synced: <datetime>
 ✅ Synced epic <name> to GitHub
   Epic: #<N>
   Tasks: N sub-issues
-  Worktree: ../epic-<name>
-  Next: "start working on issue <N>" or "start the <name> epic"
+  Next: "start working on issue <N>" or "start the <name> initiative"
 ```
 
 ---
@@ -216,78 +197,6 @@ sed -i "s/- \[ \] #<N>/- [x] #<N>/" /tmp/epic-body.md
 gh issue edit <epic_N> --body-file /tmp/epic-body.md
 ```
 5. Recalculate and update epic progress: `progress = closed_tasks / total_tasks * 100`
-
----
-
-## Merging an Epic
-
-> **Local-only mode**: In local-only mode, skip GitHub updates; local status is updated by the merge process. `git push/pull` operations fail silently.
-
-**Trigger**: User wants to merge a completed epic back to main.
-
-### Preflight
-- **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
-- Verify worktree `../epic-<name>` exists.
-- Check for uncommitted changes in the worktree — block if dirty.
-- Warn if any task issues are still open.
-
-### Epic Merge — Target Branch
-
-When merging a completed epic, determine the target branch:
-
-1. Use the same parent-branch detection as execute.md
-2. If target is `initiative/{name}`: merge epic branch into initiative branch
-3. If target is `main`: merge epic branch directly into main (single-epic mode)
-
-After merging, clean up the epic branch but do NOT delete the initiative branch (other epics may still need it).
-
-### Process
-
-**Run tests** from the worktree (detect and run: npm test / pytest / cargo test / go test / etc.):
-```bash
-bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-worktree-git.sh" ../epic-<name> status
-```
-
-**Determine merge target** — find the epic's initiative:
-```bash
-bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-find.sh" .ccpm/initiatives -path "*/<name>/epic.md" | head -1
-```
-
-If found, extract the initiative name (first segment after `.ccpm/initiatives/`) and check for its branch:
-```bash
-git branch -a | grep -q "initiative/<initiative_name>"
-```
-
-Use the initiative branch as `MERGE_TARGET` if it exists, otherwise use `main`.
-
-**Merge and push:**
-```bash
-git checkout <MERGE_TARGET> && git pull origin <MERGE_TARGET> 2>/dev/null || true
-git merge epic/<name> --no-ff -m "Merge epic: <name>"
-git push origin <MERGE_TARGET> 2>/dev/null || true
-```
-
-**Cleanup epic branch** (do NOT delete the initiative branch):
-```bash
-git worktree remove ../epic-<name>
-git branch -d epic/<name>
-git push origin --delete epic/<name> 2>/dev/null || true
-```
-
-**Archive:**
-```bash
-mkdir -p .ccpm/archived/
-mv .ccpm/initiatives/<initiative>/<name> .ccpm/archived/<initiative>/
-```
-
-**Close GitHub issues** (skip in local-only mode). Read the epic file to get the issue number from the `github:` field, then:
-```bash
-gh issue close <epic_issue_number> -c "Epic completed and merged to <MERGE_TARGET>"
-```
-
-Update epic.md frontmatter: `status: completed`.
-
-> **Note**: Merging the initiative branch itself back to `main` is handled separately — see initiative.md.
 
 ---
 

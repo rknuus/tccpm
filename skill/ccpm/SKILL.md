@@ -27,7 +27,7 @@ Before doing anything, read `references/conventions.md` for path standards, fron
 ### 1b. Initiative — Multi-epic decomposition
 **When**: User has an initiative that needs multiple epics, or wants to run all epics at once.
 **Read**: `references/initiative.md`
-**Covers**: Decomposing initiatives into multiple epics, initiative-go (one-step), epic-start-all (sequential), initiative merging, initiative cancellation, adding epics to running initiatives.
+**Covers**: Decomposing initiatives into multiple epics, initiative-go (one-step), epic-start-all (sequential), initiative merging, initiative cancellation, adding epics to running initiatives, worktree management.
 
 ### 2. Structure — Break it down
 **When**: An epic exists and needs to be decomposed into concrete tasks.
@@ -42,7 +42,7 @@ Before doing anything, read `references/conventions.md` for path standards, fron
 ### 4. Execute — Start building
 **When**: User wants to start working on one or more GitHub issues with parallel agents.
 **Read**: `references/execute.md`
-**Covers**: Issue analysis (parallel work stream identification), launching parallel agents, coordinating worktrees.
+**Covers**: Issue analysis (parallel work stream identification), launching parallel agents, agent coordination.
 
 ### 5. Track — Know where things stand
 **When**: User asks for status, standup report, what's blocked, what's next, or needs to validate state.
@@ -111,6 +111,7 @@ Start all epics:    "start all epics for X" or "run all epics"
 Merge initiative:   "merge the X initiative"
 Cancel initiative:  "cancel initiative X" / "abandon X"
 Add epic:           "add epic Y to X" / "new epic Y for X"
+Enable worktree:  "worktree enable X" or "@ccpm worktree enable X"
 Report a bug:       "found a bug in issue 42" / "testing issue 42 revealed X"
 Create context:     "create context" or "set up context"
 Update context:     "update context" or "refresh context"

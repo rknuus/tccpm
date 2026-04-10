@@ -13,6 +13,7 @@ This phase turns an idea into a structured Initiative, then converts the Initiat
 - Check if `.ccpm/initiatives/<name>/<name>.md` already exists — if so, confirm overwrite before proceeding.
 - Ensure `.ccpm/initiatives/<name>/` directory exists; create it if not.
 - Feature name must be kebab-case (lowercase, letters/numbers/hyphens, starts with a letter). If not: "❌ Feature name must be kebab-case. Example: user-auth, payment-v2"
+- **Worktree default**: Check if `.ccpm/settings.yml` exists and contains `worktree: true`. This is the default for new initiatives. The user can override in their request with keywords: "with worktree" / "in a worktree" / "using worktree" → set worktree to `true`; "without worktree" / "no worktree" → set worktree to `false`.
 
 ### Process
 
@@ -38,6 +39,7 @@ Then write `.ccpm/initiatives/<name>/<name>.md` with this frontmatter and struct
 name: <feature-name>
 description: <one-line summary>
 status: backlog
+worktree: false
 created: <run: date -u +"%Y-%m-%dT%H:%M:%SZ">
 ---
 
@@ -67,6 +69,8 @@ created: <run: date -u +"%Y-%m-%dT%H:%M:%SZ">
 
 .ccpm/initiatives/<name>/<name>.md
 ```
+
+If `worktree: true`, append to the confirmation: "Worktree will be created during decomposition at `../<repo-basename>-<name>/`."
 
 **Recommend next step**: Assess the initiative you just wrote and recommend one of three paths. Use these proxy measures:
 - **User story count**: how many distinct user stories

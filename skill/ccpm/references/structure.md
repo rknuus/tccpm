@@ -18,6 +18,8 @@ This phase converts a technical epic into concrete, numbered task files with dep
 
 Read the epic fully. Analyze for parallelism — which pieces of work can happen simultaneously without file conflicts?
 
+**Worktree propagation**: Read the parent initiative's `worktree:` field (from `.ccpm/initiatives/<initiative>/<initiative>.md`). If `worktree: true`, resolve the worktree path (`../<repo-basename>-<initiative-name>/`) and include `worktree_path:` in the epic and task frontmatter templates below.
+
 **Task types to consider:**
 - Setup: environment, scaffolding, dependencies
 - Data: models, schemas, migrations
@@ -59,6 +61,7 @@ github: (will be set on sync)
 depends_on: []
 parallel: true
 conflicts_with: []
+worktree_path:               # optional; inherited from epic
 ---
 
 # Task: <Task Title>

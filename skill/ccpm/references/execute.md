@@ -87,7 +87,9 @@ parallelization_factor: <1.0-5.0>
 1. Verify issue exists and is open: `gh issue view <N> --json state,title,labels,body` — if GitHub is unavailable, read the local task file instead.
 2. Find local task file (as above).
 3. Check for analysis file: `.ccpm/initiatives/<initiative>/<epic>/<N>-analysis.md` — if missing, run analysis first (or do both in sequence: analyze then start).
-4. Verify epic worktree exists: `git worktree list | grep "epic-<name>"` — if not: "❌ No worktree. Sync the epic first."
+4. **Resolve working directory**: Read the initiative file's `worktree:` field.
+   - If `worktree: true`: verify worktree exists at `../<repo-basename>-<initiative-name>/`. Use that directory as the working directory for agents. If missing: "❌ Worktree not found. Run: `@ccpm worktree enable <initiative-name>`"
+   - If `worktree: false` or absent: verify initiative branch is checked out via `git branch --show-current`. If not, check it out. Agents work in the project root.
 
 ### Process
 
@@ -123,7 +125,9 @@ Task:
   description: "Issue #<N> Stream <X>"
   subagent_type: "general-purpose"
   prompt: |
-    You are working on Issue #<N> in the epic worktree at: ../epic-<name>/
+    You are working on Issue #<N>.
+    Working directory: <worktree_path if worktree, otherwise project root>
+    Branch: initiative/<initiative-name>
 
     Your stream: <stream_name>
     Your scope — files to modify: <file_patterns>
@@ -176,67 +180,49 @@ Sync updates: "sync issue <N>"
 
 ---
 
-## Starting a Full Epic
+## Starting an Initiative
 
-**Trigger**: User wants to launch parallel agents across all ready issues in an epic at once.
+**Trigger**: User wants to launch parallel agents across all ready tasks in an initiative.
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
-- Verify `.ccpm/initiatives/<initiative>/<name>/epic.md` exists. If GitHub is available, verify it has a `github:` field (i.e., it's been synced). In local-only mode, proceed without it.
+- Verify `.ccpm/initiatives/<name>/<name>.md` exists.
 - Check for uncommitted changes: `git status --porcelain` — block if dirty.
-- Verify epic branch exists: `git branch -a | grep "epic/<name>"`
-
-### Parent Branch Detection
-
-Before creating or checking out an epic branch, determine the correct parent:
-
-1. Read the epic's initiative from the file path (`.ccpm/initiatives/<initiative>/<name>/epic.md`)
-2. Check if `initiative/<initiative>` branch exists:
-   - If yes: create/rebase `epic/<name>` from `initiative/<initiative>`
-   - If no: create/rebase `epic/<name>` from `main` (single-epic mode, backward compatible)
-
-Find the epic file to determine the initiative:
-```bash
-bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-find.sh" .ccpm/initiatives -path "*/<epic_name>/epic.md" | head -1
-```
-
-If found, extract the initiative name (first segment after `.ccpm/initiatives/`) and check for its branch:
-```bash
-git branch -a | grep -q "initiative/<initiative_name>"
-```
-
-Use the initiative branch as `PARENT_BRANCH` if it exists, otherwise use `main` when creating worktrees or branches for this epic.
+- Verify initiative branch exists and is checked out: `git branch --show-current` should match `initiative/<name>`.
 
 ### Process
 
-**Step 1 — Read all task files** in `.ccpm/initiatives/<initiative>/<name>/`. Parse frontmatter for `status`, `depends_on`, `parallel`.
+**Step 1 — Collect all task files** across all epics in the initiative. Glob for `.ccpm/initiatives/<name>/*/[0-9]*.md` to gather tasks from every epic directory. Parse each task's frontmatter for `status`, `depends_on`, `parallel`, and `conflicts_with`.
 
-**Step 2 — Categorize tasks:**
-- Ready: status=open, no unmet depends_on
-- Blocked: has unmet depends_on
+**Worktree resolution**: Read the initiative's `worktree:` field. If `true`, resolve the worktree path (`../<repo-basename>-<initiative-name>/`) and pass it to all agent launches as the working directory. If `false` or absent, agents work in the project root on the initiative branch.
+
+**Step 2 — Build unified dependency graph.** Treat all tasks as one pool regardless of which epic they belong to. Task IDs in `depends_on` and `conflicts_with` can reference tasks from any epic within the initiative. Detect circular dependencies across the full graph — if found: "❌ Circular dependency detected: `<details>`"
+
+**Step 3 — Categorize tasks:**
+- Ready: status=open, no unmet depends_on, no unresolved conflicts_with
+- Blocked: has unmet depends_on or unresolved conflicts_with
 - In Progress: already has an execution file
 - Complete: status=closed
 
-**Step 3 — Analyze any ready tasks** that don't have an analysis file yet (run issue analysis inline).
+**Step 4 — Analyze any ready tasks** that don't have an analysis file yet (run issue analysis inline).
 
-**Step 4 — Launch agents** for all ready tasks following the same per-issue agent launch pattern above.
+**Step 5 — Launch agents** for all ready tasks following the same per-issue agent launch pattern above.
 
-**Step 5 — Create/update** `.ccpm/initiatives/<initiative>/<name>/execution-status.md` with all active agents and queued issues.
+**Step 6 — Create/update** `.ccpm/initiatives/<name>/execution-status.md` with all active agents and queued tasks, organized by epic for readability.
 
-**Step 6 — As agents complete**, check if blocked issues are now unblocked and launch those agents.
+**Step 7 — As agents complete**, check if blocked tasks are now unblocked and launch those agents.
 
 ---
 
 ## Agent Coordination Rules
 
-When multiple agents work in the same worktree simultaneously:
+When multiple agents work on the initiative branch simultaneously:
 
 - Each agent works only on files in its assigned stream scope.
 - Agents commit frequently with `Issue #<N>: <description>` format.
 - Before modifying a shared file, check `git status <file>` — if another agent has it modified, wait and pull first.
-- Agents sync via commits: `bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-worktree-git.sh" ../epic-<name> pull --rebase origin epic/<name> 2>/dev/null || true` before starting new file work.
+- Agents sync via commits before starting new file work. When working in a worktree: `git -C <worktree_path> pull --rebase origin initiative/<name> 2>/dev/null || true`. Otherwise: `git pull --rebase origin initiative/<name> 2>/dev/null || true`.
 - Conflicts are never auto-resolved — agents report them and pause.
 - No `--force` flags ever.
-- Before staging files, check for worktree directories with `bash "${SKILL_ROOT:-.claude/skills/ccpm}/references/scripts/ccpm-worktree-list.sh"` and exclude them from `git add` operations.
 
 Shared files that commonly need coordination (types, config, package.json) should be handled by one designated stream; others pull after that commit.

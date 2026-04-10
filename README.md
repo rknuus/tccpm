@@ -126,6 +126,7 @@ TCCPM is an **Agent Skill** installed as a symlink or copy in `.claude/skills/cc
 │   ├── rules/                    # CCPM rules (loaded by harness)
 │   └── context/                  # Project context files
 └── .ccpm/                        # PM workspace
+    ├── settings.yml              # Optional settings (e.g. worktree: true)
     ├── initiatives/
     │   ├── [name].md             # Initiative document
     │   └── [name]/               # Epics for this initiative
@@ -204,6 +205,7 @@ Create context:      @ccpm create context
 Load context:        @ccpm prime context
 Search:              @ccpm search for X
 Validate:            @ccpm validate project state
+Enable worktree:     @ccpm worktree enable X
 ```
 
 > GitHub integration is optional. TCCPM works in local-only mode without `gh` CLI.
@@ -330,6 +332,40 @@ Focus on building, not managing. Intelligent prioritization and automatic contex
 
 > GitHub is optional. TCCPM works in local-only mode without `gh` CLI. To enable GitHub integration, install and authenticate `gh`.
 
+## Worktree Isolation
+
+By default, all work happens on branches in the main working tree. For parallel human/agent work on different initiatives, enable **worktree mode** — each initiative gets its own git worktree as a sibling directory.
+
+### Configure globally
+
+Set the default for all new initiatives in `.ccpm/settings.yml`:
+
+```yaml
+worktree: true
+```
+
+### Override per initiative
+
+Add "with worktree" or "without worktree" to your request:
+
+```
+@ccpm create an initiative for auth-system with worktree
+@ccpm create an initiative for small-fix without worktree
+```
+
+### Enable on an existing initiative
+
+```
+@ccpm worktree enable auth-system
+```
+
+### How it works
+
+- Creates a worktree at `../<repo-name>-<initiative-name>/` (sibling to project root)
+- One worktree per initiative — all epics share it
+- Agents work in the worktree directory instead of the project root
+- Cleaned up automatically on initiative merge or cancel
+
 ## Permissions
 
 TCCPM uses various shell commands during its workflow. Without proper permissions, Claude Code will prompt for approval on each invocation. Configure permissions once to avoid repeated prompts.
@@ -423,6 +459,7 @@ This tailored variant adds the following on top of [upstream CCPM v2](https://gi
 | **Multi-epic initiatives** | Decompose initiatives into 1-10 epics with dependency ordering |
 | **Context management** | Create, update, and load project context across sessions |
 | **`@ccpm` explicit invocation** | Prefix with `@ccpm` to bypass Claude's built-in planning mode |
+| **Optional worktree isolation** | One git worktree per initiative for parallel human/agent work — configured globally in `.ccpm/settings.yml` or per-initiative |
 
 ## License
 

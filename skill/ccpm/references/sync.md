@@ -6,16 +6,12 @@ This phase covers pushing local epics/tasks to GitHub as issues, syncing progres
 
 ## GitHub Availability
 
-Before any sync operation, check GitHub availability:
+Before any sync operation, check GitHub availability in two steps:
 
-```bash
-GH_AVAILABLE=false
-if command -v gh &>/dev/null && gh auth status &>/dev/null 2>&1; then
-  GH_AVAILABLE=true
-fi
-```
+1. Run `command -v gh` — if it fails, `gh` is not installed.
+2. If `gh` is installed, run `gh auth status` — if it fails, the user is not authenticated.
 
-If `GH_AVAILABLE` is false, skip all GitHub operations and work in local-only mode. Local task files in `.ccpm/` remain the source of truth.
+If either check fails, skip all GitHub operations and work in local-only mode. Local task files in `.ccpm/` remain the source of truth.
 
 ---
 
@@ -25,8 +21,10 @@ If `GH_AVAILABLE` is false, skip all GitHub operations and work in local-only mo
 
 Run and read the output:
 ```bash
-git remote get-url origin 2>/dev/null || echo ""
+git remote get-url origin
 ```
+
+If no remote is configured, this will fail — switch to local-only mode.
 
 If the URL contains `automazeio/ccpm`, stop: "Cannot sync to the CCPM template repository." Otherwise, extract the `OWNER/REPO` slug from the URL (strip `github.com[:/]` prefix and `.git` suffix) and use it as `REPO` in subsequent `gh` commands.
 
@@ -94,9 +92,8 @@ If using sub-issues: `gh sub-issue create --parent <epic_number> ...`
 
 After all issues are created, rename `<id>.md` → `<issue_number>.md` and update all `depends_on`/`conflicts_with` arrays to use real issue numbers (not local IDs).
 
+Build the old-to-new ID mapping. For each task file, use the Edit tool with `replace_all: true` to replace every occurrence of `<old_id>` with `<new_num>` in the file content. Then rename the file:
 ```bash
-# Build old→new mapping, then for each task file:
-sed -i.bak "s/\b<old_id>\b/<new_num>/g" <file>  # repeat for each mapping
 mv <old_id>.md <new_num>.md
 ```
 
@@ -191,11 +188,9 @@ echo "✅ Task completed — all acceptance criteria met." | gh issue comment <N
 gh issue close <N>
 ```
 4. Check off the task in the epic issue body (skip if `GH_AVAILABLE` is false):
-```bash
-gh issue view <epic_N> --json body -q .body > /tmp/epic-body.md
-sed -i "s/- \[ \] #<N>/- [x] #<N>/" /tmp/epic-body.md
-gh issue edit <epic_N> --body-file /tmp/epic-body.md
-```
+   - Fetch the body: `gh issue view <epic_N> --json body -q .body > /tmp/epic-body.md`
+   - Use the Edit tool to replace `- [ ] #<N>` with `- [x] #<N>` in `/tmp/epic-body.md`.
+   - Update the issue: `gh issue edit <epic_N> --body-file /tmp/epic-body.md`
 5. Recalculate and update epic progress: `progress = closed_tasks / total_tasks * 100`
 
 ---

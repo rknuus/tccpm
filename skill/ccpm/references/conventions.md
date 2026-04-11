@@ -55,6 +55,22 @@ An explicit `@ccpm` command is authorization to proceed. Do not ask "shall I pro
 
 ---
 
+## Command Safety
+
+Keep Bash tool calls simple and single-purpose so each one matches a permission pattern (e.g., `Bash(go test:*)`) and can be approved once. The permission monitor flags shell metacharacters — avoid them.
+
+| Rule | Do | Don't |
+|---|---|---|
+| **Prefer native tools over Bash** | Edit tool for file changes, Read tool for reading, Grep tool for searching content, Glob tool for finding files | `sed`, `cat`/`head`/`tail`, `grep` in Bash, `find`/`ls` in Bash |
+| **One command per Bash call** | Separate Bash tool calls for each command | `git checkout main && git pull origin main` |
+| **No stderr redirection** | Run the command plain; handle errors in the next step. For optional operations, note "skip on failure" in surrounding instruction text | `git remote get-url origin 2>/dev/null` |
+| **No command substitution in Bash calls** | Run the command in one Bash call, reference the output in the next | `` `cmd` `` or `$(cmd)` inside a Bash tool call |
+| **Simple, single-purpose commands** | `go test ./...` | `cd dir && go test 2>&1 \| head` |
+
+**Scripts are exempt**: The monitor only sees the top-level Bash tool call (e.g., `bash references/scripts/status.sh`), not commands executed within the script.
+
+---
+
 ## Task ID Counter
 
 The file `.ccpm/next-id` contains the next available globally unique task ID as a plain integer. Before creating any task files, read this value. After creating all tasks, update it to the next unused value.
@@ -136,15 +152,12 @@ date -u +"%Y-%m-%dT%H:%M:%SZ"
 ## Frontmatter Update Pattern
 
 When updating a single frontmatter field in an existing file:
-```bash
-sed -i.bak "/^<field>:/c\\<field>: <value>" <file>
-rm <file>.bak
-```
+
+Use the Edit tool to replace the frontmatter line. Match the full line (e.g., `status: backlog`) and replace with the new value (e.g., `status: in-progress`).
 
 When stripping frontmatter to get body content for GitHub:
-```bash
-sed '1,/^---$/d; 1,/^---$/d' <file> > /tmp/body.md
-```
+
+Use the Read tool with `offset` to skip frontmatter lines, then use the body content directly.
 
 ---
 
@@ -152,10 +165,7 @@ sed '1,/^---$/d; 1,/^---$/d' <file> > /tmp/body.md
 
 ### Repository Safety Check (run before any write operation)
 
-Run the following and read the output:
-```bash
-git remote get-url origin 2>/dev/null || echo ""
-```
+Run `git remote get-url origin` as a plain command. If no remote exists, the command will fail — check the output and proceed accordingly.
 
 If the URL contains `automazeio/ccpm`, stop: "Cannot write to the CCPM template repository." Otherwise, extract the `OWNER/REPO` slug from the URL (strip `github.com[:/]` prefix and `.git` suffix) and use it as `REPO` in subsequent `gh` commands.
 
@@ -166,10 +176,8 @@ gh <command> || echo "❌ GitHub CLI failed. Run: gh auth login"
 ```
 
 ### Getting Issue Numbers
-```bash
-# From a task file's github field:
-grep 'github:' <file> | grep -oE '[0-9]+$'
-```
+
+Use the Grep tool to search for the `github:` field in the task file, then extract the issue number from the matched line.
 
 ---
 
@@ -178,7 +186,12 @@ grep 'github:' <file> | grep -oE '[0-9]+$'
 - One branch per initiative: `initiative/<name>`
 - Always start branches from an up-to-date main:
   ```bash
-  git checkout main && git pull origin main
+  git checkout main
+  ```
+  ```bash
+  git pull origin main
+  ```
+  ```bash
   git checkout -b initiative/<name>
   ```
 - Commit format: `Issue #<N>: <description>`
@@ -209,15 +222,7 @@ Worktrees are optional. Initiatives without `worktree: true` use plain branches 
 
 ## Epic Progress Calculation
 
-Count total task files and closed task files separately:
-```bash
-ls .ccpm/initiatives/<initiative>/<name>/[0-9]*.md 2>/dev/null | wc -l
-```
-```bash
-grep -l '^status: closed' .ccpm/initiatives/<initiative>/<name>/[0-9]*.md 2>/dev/null | wc -l
-```
-
-Then calculate progress as `closed * 100 / total`.
+Use the Glob tool to find task files matching `.ccpm/initiatives/<initiative>/<name>/[0-9]*.md`, then use the Grep tool to find which of those contain `status: closed`. Calculate progress as `closed * 100 / total`.
 
 Update epic frontmatter when any task closes.
 

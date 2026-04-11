@@ -141,6 +141,7 @@ Task:
     5. Update progress in: .ccpm/initiatives/<initiative>/<epic>/updates/<N>/stream-<X>.md
     6. If you need to touch files outside your scope, note it in your progress file and wait
     7. Never use --force on git operations
+    8. Follow command safety rules: use Read/Grep/Glob/Edit tools for file operations. Keep Bash commands simple — no &&, no 2>/dev/null, one operation per call.
 
     Complete your stream's work and mark status: completed when done.
 ```
@@ -214,6 +215,35 @@ Sync updates: "sync issue <N>"
 
 ---
 
+## Agent Command Construction
+
+Agents must follow the Command Safety rules from `references/conventions.md`. In addition, these rules govern how agents construct commands during task execution:
+
+**Use native tools for file operations:**
+- Read files with the Read tool, not `cat`, `head`, or `tail` in Bash
+- Search file content with the Grep tool, not `grep` or `rg` in Bash
+- Find files with the Glob tool, not `find` or `ls` in Bash
+- Edit files with the Edit tool, not `sed` or `awk` in Bash
+
+**Keep Bash commands simple and single-purpose:**
+- One operation per Bash call. Don't chain with `&&` or `;`.
+- Don't redirect stderr: no `2>&1`, no `2>/dev/null`. If a command might fail, run it and check the result in the next step.
+- Don't use command substitution (`$()` or backticks) in Bash tool calls.
+- Don't write inline scripts (Python, jq, Ruby) in Bash tool calls. If parsing is needed, create a script file first or use a native tool.
+
+**Match project permission patterns:** Simple commands like `go test ./...`, `npm test`, `cargo build` match project-level permission patterns (e.g., `Bash(go test:*)`). The user approves the pattern once and all subsequent calls pass. Complex commands like `cd dir && go test 2>&1 | head -50` don't match any pattern and require individual approval every time.
+
+**Examples:**
+
+| Don't | Do |
+|-------|-----|
+| `cd frontend && npm test` | `npm test --prefix frontend` (or run from the correct directory) |
+| `go list -u -m all 2>&1 \| grep '\['` | Run `go list -u -m all`, then use the Grep tool on the output |
+| `cat config.json \| python3 -c "import json..."` | Use the Read tool to read config.json, then process the content directly |
+| `git status && git diff && git log` | Three separate Bash tool calls |
+
+---
+
 ## Agent Coordination Rules
 
 When multiple agents work on the initiative branch simultaneously:
@@ -221,7 +251,7 @@ When multiple agents work on the initiative branch simultaneously:
 - Each agent works only on files in its assigned stream scope.
 - Agents commit frequently with `Issue #<N>: <description>` format.
 - Before modifying a shared file, check `git status <file>` — if another agent has it modified, wait and pull first.
-- Agents sync via commits before starting new file work. When working in a worktree: `git -C <worktree_path> pull --rebase origin initiative/<name> 2>/dev/null || true`. Otherwise: `git pull --rebase origin initiative/<name> 2>/dev/null || true`.
+- Agents sync via commits before starting new file work. When working in a worktree: `git -C <worktree_path> pull --rebase origin initiative/<name>`. Otherwise: `git pull --rebase origin initiative/<name>`. If no remote is configured, skip the pull and continue.
 - Conflicts are never auto-resolved — agents report them and pause.
 - No `--force` flags ever.
 

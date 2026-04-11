@@ -295,6 +295,10 @@ Focus on building, not managing. Intelligent prioritization and automatic contex
 - `git` (required)
 - `gh` CLI (optional — for GitHub integration)
 
+### Permissions
+
+CCPM scripts and operations work best when common commands are pre-approved in Claude Code's permission settings. See [Permissions](#permissions) below for recommended `settings.json` configuration, or use `--dangerously-skip-permissions` (YOLO mode) to skip all prompts.
+
 ### Install
 
 1. **Clone the TCCPM repository**:
@@ -399,6 +403,7 @@ Add these to `~/.claude/settings.json` under `permissions.allow`. These commands
       "Bash(git remote:*)",
       "Bash(git show:*)",
       "Bash(git status:*)",
+      "Bash(git worktree:*)",
       "Bash(basename:*)",
       "Edit(.ccpm/**)",
       "Read(.ccpm/**)",
@@ -441,9 +446,11 @@ Add these to `.claude/settings.local.json` in your project root. These commands 
 
 | Tier | Where | What |
 |------|-------|------|
-| **Global** | `~/.claude/settings.json` | Read-only utilities, `mkdir`, git read-only, `basename`, `.ccpm/**` file ops |
+| **Global** | `~/.claude/settings.json` | Read-only utilities, `mkdir`, git read-only, `git worktree`, `basename`, `.ccpm/**` file ops |
 | **Project** | `.claude/settings.local.json` | Git write ops, `make`, `sed` for frontmatter, `mv` for task renames, `gh` for GitHub, TCCPM helper scripts |
 | **Prompt** | Not pre-approved | Destructive operations (`rm -rf`, `git push --force`, `git reset --hard`) |
+
+For additional command safety guidance, see `references/command-safety.md`.
 
 ## Tailoring-Specific Features
 

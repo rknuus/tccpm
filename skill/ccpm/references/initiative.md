@@ -30,10 +30,17 @@ Identify dependencies between epics. Ensure each epic is independently valuable 
 **Step 3 — Create the initiative branch:**
 ```bash
 git checkout main
-git pull origin main 2>/dev/null || true
-git checkout -b initiative/<name>
-git push -u origin initiative/<name> 2>/dev/null || echo "No remote — continuing locally"
+git pull origin main
 ```
+
+If no remote is configured, the pull will fail — skip it and continue.
+
+```bash
+git checkout -b initiative/<name>
+git push -u origin initiative/<name>
+```
+
+If no remote is configured, the push will fail — continue locally.
 
 If the branch already exists, check it out instead of creating.
 
@@ -238,8 +245,10 @@ Ready to merge to main: merge the <name> initiative
 **Step 1 — Check out the initiative branch** and pull latest:
 ```bash
 git checkout initiative/<name>
-git pull origin initiative/<name> 2>/dev/null || true
+git pull origin initiative/<name>
 ```
+
+If no remote is configured, the pull will fail — skip it and continue.
 
 **Step 2 — Validate epic completion.** Read each `epic.md` under `.ccpm/initiatives/<name>/*/epic.md`. If any epic has status != "completed", warn the user and confirm before continuing.
 
@@ -261,14 +270,18 @@ Completed epics:
 **Step 5b — Remove worktree (if present).** Read the initiative's `worktree:` field. If `true`:
 ```bash
 REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
-git worktree remove "../${REPO_BASENAME}-<name>" 2>/dev/null || true
+git worktree remove "../${REPO_BASENAME}-<name>"
 ```
+
+If the worktree does not exist at that path, the remove will fail — skip it and continue.
 
 **Step 6 — Post-merge cleanup:**
 ```bash
 git branch -d initiative/<name>
-git push origin --delete initiative/<name> 2>/dev/null || true
+git push origin --delete initiative/<name>
 ```
+
+If no remote is configured, the push will fail — skip it and continue.
 
 **Step 7 — Archive the initiative:**
 ```bash
@@ -323,14 +336,18 @@ git checkout main
 **Step 2b — Remove worktree (if present).** Read the initiative's `worktree:` field. If `true`:
 ```bash
 REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
-git worktree remove "../${REPO_BASENAME}-<name>" 2>/dev/null || true
+git worktree remove "../${REPO_BASENAME}-<name>"
 ```
+
+If the worktree does not exist at that path, the remove will fail — skip it and continue.
 
 **Step 3 — Delete the initiative branch:**
 ```bash
 git branch -D initiative/<name>
-git push origin --delete initiative/<name> 2>/dev/null || true
+git push origin --delete initiative/<name>
 ```
+
+If no remote is configured, the push will fail — skip it and continue.
 
 **Step 4 — Remove or archive the initiative directory:**
 - **Remove** (default): delete `.ccpm/initiatives/<name>/`

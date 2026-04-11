@@ -56,6 +56,11 @@ Before doing anything, read `references/conventions.md` for path standards, fron
 **Read**: `references/context.md`
 **Covers**: Creating baseline context, refreshing with recent changes, loading context in new sessions.
 
+## Command Safety
+**When**: User wants to reduce permission prompts for non-CCPM commands (builds, tests, linters).
+**Read**: `references/command-safety.md`
+**Covers**: Recommended `~/.claude/CLAUDE.md` additions, per-project command patterns, language-specific examples.
+
 ---
 
 ## Script-First Rule

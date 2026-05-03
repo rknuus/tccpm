@@ -10,6 +10,7 @@ This phase converts a technical epic into concrete, numbered task files with dep
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode detection**: After the root check, run the canonical [Mode-Detection Preflight](conventions.md#mode-detection-preflight) so `CCPM_TRACKED`, `METHOD_DIR`, `METHOD_TRACKED`, `WORKTREE_ACTIVE`, `ONLINE`, and `SYNC_ENABLED` are available for the rest of this phase.
 - Verify `.ccpm/initiatives/<initiative>/<name>/epic.md` exists with valid frontmatter.
 - If task files already exist in the epic directory, list them and confirm deletion before recreating.
 - If epic status is "completed", warn the user before proceeding.
@@ -101,6 +102,29 @@ Parallel tasks: N
 Sequential tasks: N
 Estimated total effort: N hours
 ```
+
+**Commit the task files** — invoke the coordinator:
+
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-tasks.sh <initiative> <name>
+```
+
+The script counts the task files for the commit subject (`Epic: <name> — N tasks`), assembles the pathspec list per the FR-3 staging matrix, runs the FR-8 atomic commit, and prints a single-line status. Expected status outputs:
+
+- `committed: Epic: <name> — N tasks` — commit produced.
+- `CCPM_TRACKED=false; task files not committed (working tree only)` — `.ccpm/` is gitignored.
+- `no changes to commit (subject: Epic: <name> — N tasks)` — idempotent re-run.
+- Non-zero exit + error to stderr — surface to the user.
+
+See [Coordinator Scripts](conventions.md#coordinator-scripts).
+
+**Optional push** — invoke the push coordinator:
+
+```bash
+bash <skill-root>/references/scripts/ccpm-push-branch.sh <initiative>
+```
+
+The script is gated solely on `ONLINE`; when offline it silently skips with status `skipped: offline`. Never uses `--force`.
 
 **After completion**: Confirm "✅ Created N tasks for epic: <name>" and list all created task files as bare relative paths, one per line:
 

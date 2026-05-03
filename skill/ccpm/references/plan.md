@@ -10,6 +10,7 @@ This phase turns an idea into a structured Initiative, then converts the Initiat
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode detection**: After the root check, run the canonical [Mode-Detection Preflight](conventions.md#mode-detection-preflight) so `CCPM_TRACKED`, `METHOD_DIR`, `METHOD_TRACKED`, `WORKTREE_ACTIVE`, `ONLINE`, and `SYNC_ENABLED` are available for the rest of this phase.
 - Check if `.ccpm/initiatives/<name>/<name>.md` already exists — if so, confirm overwrite before proceeding.
 - Ensure `.ccpm/initiatives/<name>/` directory exists; create it if not.
 - Feature name must be kebab-case (lowercase, letters/numbers/hyphens, starts with a letter). If not: "❌ Feature name must be kebab-case. Example: user-auth, payment-v2"
@@ -72,6 +73,21 @@ created: <run: date -u +"%Y-%m-%dT%H:%M:%SZ">
 
 If `worktree: true`, append to the confirmation: "Worktree will be created during decomposition at `../<repo-basename>-<name>/`."
 
+**Commit the initiative file** — invoke the coordinator script:
+
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-initiative.sh <name>
+```
+
+The script runs mode detection internally, gates on `CCPM_TRACKED`, builds the commit message from the initiative file's `description:` frontmatter, runs the FR-8 atomic commit, and prints a single-line status. Expected status outputs:
+
+- `committed: Initiative: <name>` — commit produced.
+- `CCPM_TRACKED=false; initiative file not committed (working tree only)` — `.ccpm/` is gitignored; the file stays in the working tree (downstream phases reference it from disk).
+- `no changes to commit (subject: Initiative: <name>)` — re-running with no diff (idempotent).
+- Non-zero exit + error to stderr — surface to the user.
+
+The first push of the initiative branch happens at sync time per [Push / pull cadence](conventions.md#push--pull-cadence); no push is needed here.
+
 **Recommend next step**: Assess the initiative you just wrote and recommend one of three paths. Use these proxy measures:
 - **User story count**: how many distinct user stories
 - **Functional requirement count**: how many requirements
@@ -109,6 +125,7 @@ Always list all four options (the three tiers plus "revise"). Mark the recommend
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode detection**: After the root check, run the canonical [Mode-Detection Preflight](conventions.md#mode-detection-preflight) so `CCPM_TRACKED`, `METHOD_DIR`, `METHOD_TRACKED`, `WORKTREE_ACTIVE`, `ONLINE`, and `SYNC_ENABLED` are available for the rest of this phase.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists with valid frontmatter (name, description, status, created).
 - Check if `.ccpm/initiatives/<name>/<epic-name>/epic.md` already exists — confirm overwrite if so.
 
@@ -155,6 +172,21 @@ github: (will be set on sync)
 
 Ready to decompose into tasks? Say: decompose the <epic-name> epic
 ```
+
+**Commit the epic file** — invoke the coordinator script:
+
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-epic.sh <name> <epic-name>
+```
+
+The script runs mode detection internally, gates on `CCPM_TRACKED`, runs the FR-8 atomic commit, and prints a single-line status. Expected status outputs:
+
+- `committed: Epic: <epic-name>` — commit produced.
+- `CCPM_TRACKED=false; epic file not committed (working tree only)` — `.ccpm/` is gitignored.
+- `no changes to commit (subject: Epic: <epic-name>)` — idempotent re-run.
+- Non-zero exit + error to stderr — surface to the user.
+
+See [Coordinator Scripts](conventions.md#coordinator-scripts) for the full action surface and invariants. The first push happens at sync time per [Push / pull cadence](conventions.md#push--pull-cadence); no push is needed here.
 
 **Next steps to suggest:**
 - "Decompose into tasks: decompose the <epic-name> epic"

@@ -10,7 +10,7 @@
 
 Stop losing context. Stop blocking on tasks. Stop shipping bugs. TCCPM turns Initiatives into epics, epics into tasks, and tasks into production code — with full traceability at every step.
 
-> **This is a tailored variant** of [automazeio/ccpm](https://github.com/automazeio/ccpm) v2 with additional features: multi-epic initiatives, local-only mode (GitHub optional), context management, `.ccpm/` data separation, globally unique task IDs, and `@ccpm` explicit invocation.
+> **This is a tailored variant** of [automazeio/ccpm](https://github.com/automazeio/ccpm) v2 with additional features: multi-epic initiatives, local-only mode (GitHub optional), context management, `.ccpm/` data separation, globally unique task IDs, `@ccpm` explicit invocation, and an optional GitHub PR review loop.
 
 ## Table of Contents
 
@@ -24,6 +24,9 @@ Stop losing context. Stop blocking on tasks. Stop shipping bugs. TCCPM turns Ini
 - [The Parallel Execution System](#the-parallel-execution-system)
 - [Key Features & Benefits](#key-features--benefits)
 - [Get Started Now](#get-started-now)
+- [Worktree Isolation](#worktree-isolation)
+- [GitHub PR Review Loop](#github-pr-review-loop)
+- [Project-Mode Settings](#project-mode-settings)
 - [Permissions](#permissions)
 - [Tailoring-Specific Features](#tailoring-specific-features)
 - [License](#license)
@@ -45,7 +48,9 @@ graph LR
     A[Initiative] --> B[Epic Planning]
     B --> C[Task Decomposition]
     C --> D[Parallel Execution]
-    D --> E[Merge to Main]
+    D -.optional.-> E[GitHub PR Review]
+    E -.-> F[Merge to Main]
+    D --> F
 ```
 
 ### Simple — Small Features
@@ -67,6 +72,13 @@ Pause between phases to review and refine:
 @ccpm decompose memory-system into epics         # Convert to technical epic(s)
 @ccpm break down the memory-system epic          # Break into tasks
 @ccpm start the memory-system epic               # Launch parallel agents
+
+# Optional GitHub PR review loop (requires gh auth login):
+@ccpm push the memory-system initiative for review   # Push branch; open PR manually
+# (review on GitHub; leave comments)
+@ccpm address review comments for memory-system      # Apply fixes + reply on threads + re-push
+# (re-review; loop until satisfied)
+
 @ccpm merge the memory-system initiative         # Merge everything to main
 ```
 
@@ -84,6 +96,12 @@ For features that need multiple coordinated epics:
 
 # Start all epics sequentially — no interaction until done:
 @ccpm start all epics for auth-system
+
+# Optional GitHub PR review loop (requires gh auth login):
+@ccpm push the auth-system initiative for review     # Push branch; open PR manually
+# (review on GitHub; leave comments)
+@ccpm address review comments for auth-system        # Apply fixes + reply on threads + re-push
+# (re-review; loop until satisfied)
 
 @ccpm merge the auth-system initiative           # Merge everything to main
 ```
@@ -177,7 +195,17 @@ Breaks each epic into concrete, actionable tasks (up to 10 per epic) with accept
 ```
 Specialized agents implement tasks while maintaining progress updates. All tasks execute on the initiative branch.
 
-### 5. Track and Merge
+### 5. Review on GitHub (Optional)
+
+```
+@ccpm push the feature-name initiative for review
+@ccpm address review comments for feature-name
+```
+Push the initiative branch to GitHub so a PR review can happen before merge. After comments are left on the PR, the second command fetches unresolved threads via `gh`, applies fixes, replies on each thread, and re-pushes. Loop the second command until you are satisfied — threads are not auto-resolved; you decide. CCPM data (initiatives, epics, tasks) is **not** synced to GitHub Issues; only the branch and PR conversation cross.
+
+Requires `gh` to be installed and authenticated (`gh auth login`). See [GitHub PR Review Loop](#github-pr-review-loop) for full details.
+
+### 6. Track and Merge
 
 ```
 @ccpm what's our status
@@ -200,6 +228,8 @@ Start all epics:     @ccpm start all epics for X
 Check status:        @ccpm what's our status / @ccpm standup
 What's next:         @ccpm what should I work on next
 What's blocked:      @ccpm what's blocked
+Push for review:     @ccpm push the X initiative for review     (requires gh)
+Address comments:    @ccpm address review comments for X        (requires gh)
 Merge initiative:    @ccpm merge the X initiative
 Create context:      @ccpm create context
 Load context:        @ccpm prime context
@@ -208,7 +238,7 @@ Validate:            @ccpm validate project state
 Enable worktree:     @ccpm worktree enable X
 ```
 
-> GitHub integration is optional. TCCPM works in local-only mode without `gh` CLI.
+> GitHub integration is optional. TCCPM works in local-only mode without `gh`. The GitHub PR review loop and `gh issue …` sync both require `gh auth login`.
 
 ## The Parallel Execution System
 
@@ -293,7 +323,7 @@ Focus on building, not managing. Intelligent prioritization and automatic contex
 
 - [Claude Code](https://claude.ai/code)
 - `git` (required)
-- `gh` CLI (optional — for GitHub integration)
+- `gh` CLI (optional — required for `gh issue …` sync and the GitHub PR review loop; install via [cli.github.com](https://cli.github.com) and run `gh auth login`)
 
 ### Permissions
 
@@ -334,7 +364,7 @@ CCPM scripts and operations work best when common commands are pre-approved in C
    @ccpm create an initiative for your-feature-name
    ```
 
-> GitHub is optional. TCCPM works in local-only mode without `gh` CLI. To enable GitHub integration, install and authenticate `gh`.
+> GitHub is optional for the core workflow — TCCPM works in local-only mode without `gh`. The GitHub PR review loop (push for review / address review comments) and `gh issue …` sync both require `gh auth login`.
 
 ## Worktree Isolation
 
@@ -369,6 +399,81 @@ Add "with worktree" or "without worktree" to your request:
 - One worktree per initiative — all epics share it
 - Agents work in the worktree directory instead of the project root
 - Cleaned up automatically on initiative merge or cancel
+
+The `worktree:` key is independent of the project-mode keys documented below — enabling worktrees does not change `.ccpm/` tracking, architect-directory tracking, or GitHub-sync behaviour.
+
+## GitHub PR Review Loop
+
+For initiatives that need a code review on GitHub before merging, TCCPM provides an opt-in review loop. The loop is at the **initiative level** and operates on the initiative's existing branch — it does **not** sync initiatives, epics, or tasks to GitHub Issues. Only the branch and the PR conversation cross the boundary.
+
+### Prerequisite
+
+`gh` must be installed and authenticated against the repository's host:
+
+```bash
+gh auth login
+```
+
+The review commands run a `gh` preflight and abort with an actionable message if `gh` is missing, unauthenticated, or unable to resolve the current repository.
+
+### The Loop
+
+```
+@ccpm push the <name> initiative for review     # Push branch; user opens PR manually
+# (user reviews on GitHub; leaves comments)
+@ccpm address review comments for <name>        # Apply fixes, reply on each thread, push again
+# (user re-reviews; loops as needed)
+@ccpm merge the <name> initiative               # When satisfied, existing merge flow
+```
+
+### What each command does
+
+- **`push the <name> initiative for review`** — verifies `gh`, then pushes `initiative/<name>` to `origin`. The user opens or refreshes the PR in the GitHub UI (TCCPM does not create PRs as part of this loop).
+- **`address review comments for <name>`** — verifies `gh`, fetches **unresolved** review threads on the open PR via `gh api graphql`, applies the requested code change for each, replies on the thread describing the change, commits, and re-pushes. Threads are **not** marked resolved — the user reviews and decides resolution.
+
+See [`references/review.md`](references/review.md) for the full process, error handling, and post-completion output.
+
+## Project-Mode Settings
+
+`.ccpm/settings.yml` also accepts four optional keys that override CCPM's auto-detection of project mode (whether `.ccpm/` is tracked, whether an architect directory is present, and whether GitHub sync is enabled). Each key is independent — set only the ones you need to override; the rest fall back to auto-detection. The detection contract (auto-detection sources, the six runtime flags, caching) is documented in `references/conventions.md` under "Project-Mode Detection".
+
+| Key | Type | Default when absent | Use case |
+|---|---|---|---|
+| `ccpm_tracked` | boolean | auto-detected via `git check-ignore .ccpm/` | Force-override when the auto-detected answer is wrong (e.g. transitioning a project from tracked to ignored without changing `.gitignore` yet) |
+| `method_dir` | string (relative path) | auto-detected via glob `*.method` at the repo root (multi-match fails fast) | Disambiguate when multiple `*.method` directories exist, or pin a non-standard architect directory path |
+| `method_tracked` | boolean | auto-detected via `git check-ignore <method_dir>/`; forced `false` when no architect directory exists | Force-override architect-directory tracking independently of `.ccpm/` tracking |
+| `github_sync` | boolean | auto-detected via `gh auth status` and `gh` on PATH | Pin sync on/off so transient `gh` auth blips do not flip CCPM's behaviour mid-session |
+
+### Examples
+
+Open-source fork that wants `.ccpm/` out of the upstream history while keeping `gh issue ...` calls available:
+
+```yaml
+ccpm_tracked: false
+github_sync: true
+```
+
+Solo dev who tracks an ACCPM architect directory but ignores `.ccpm/`:
+
+```yaml
+ccpm_tracked: false
+method_dir: foo.method
+method_tracked: true
+```
+
+Team using ACCPM as the canonical workflow with both tracked and sync explicitly on:
+
+```yaml
+ccpm_tracked: true
+method_tracked: true
+github_sync: true
+```
+
+User who manually runs `git push`/`pull` but lets CCPM call `gh issue ...` (note: `ONLINE` and `SYNC_ENABLED` are independent at runtime — pinning `github_sync: true` while leaving `ONLINE` to auto-detect is supported):
+
+```yaml
+github_sync: true
+```
 
 ## Permissions
 
@@ -419,35 +524,42 @@ Add these to `~/.claude/settings.json` under `permissions.allow`. These commands
 
 ### Project settings (per TCCPM project)
 
-Add these to `.claude/settings.local.json` in your project root. These commands modify project state and are specific to TCCPM workflows:
+Add these to `.claude/settings.local.json` in your project root. The required entries are minimal — most CCPM phase actions go through coordinator scripts under `.claude/skills/ccpm/references/scripts/`, and a single Bash allowlist pattern covers every coordinator invocation.
 
 ```json
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)",
-      "Bash(git checkout:*)",
-      "Bash(git commit:*)",
-      "Bash(git merge:*)",
-      "Bash(git pull:*)",
-      "Bash(git push:*)",
-      "Bash(git stash:*)",
-      "Bash(make:*)",
-      "Bash(sed:*)",
-      "Bash(mv:*)",
+      "Bash(bash *ccpm/references/scripts/*.sh *)",
+      "Bash(bash *ccpm/references/scripts/*.sh)",
       "Bash(gh:*)",
-      "Bash(bash .claude/skills/ccpm/references/scripts/*.sh:*)"
+      "Bash(rm .ccpm/initiatives/*-commit-msg.txt)",
+      "Bash(rm .ccpm/initiatives/*/*/*-commit-msg.txt)"
     ]
   }
 }
 ```
+
+**Why so short?** CCPM phase docs delegate every git/GitHub action — branch creation, commits, push, merge, cancel, worktree management, the GitHub PR review-loop pushes and replies — to coordinator scripts. The single `Bash(bash *ccpm/references/scripts/*.sh *)` pattern (plus the no-arg variant for scripts like `init.sh`) authorizes every coordinator call. See [Coordinator Scripts](references/conventions.md#coordinator-scripts).
+
+**Why the leading `*` in the path pattern?** The recommended install symlinks the skill into your project (`.claude/skills/ccpm → /path/to/tccpm/skill/ccpm`). Claude Code's permission engine evaluates allow rules against **both** the symlink path *and* the resolved target — both must match for the rule to apply unprompted. A pattern anchored at `.claude/skills/ccpm/...` matches the symlink but not the resolved target (which lives outside the project, e.g. `/Users/<you>/path/to/tccpm/skill/ccpm/...`), and the call would still prompt. The leading `*` matches any prefix, so both paths satisfy the rule. If you copied the skill instead of symlinking, the narrower `Bash(bash .claude/skills/ccpm/references/scripts/*.sh *)` form also works — but the wildcard form is safe in both cases. See the [official permissions docs](https://code.claude.com/docs/en/permissions.md) for the dual-path rule.
+
+**Required entries**:
+- `Bash(bash *ccpm/references/scripts/*.sh *)` — every coordinator script invocation (with arguments). The leading `*` covers symlinked installs.
+- `Bash(bash *ccpm/references/scripts/*.sh)` — no-arg variant (some helper scripts take no arguments and the wildcard pattern requires at least one).
+- `Bash(gh:*)` — sync phase calls `gh issue …` inline; the GitHub PR review-loop coordinators call `gh api`, `gh pr list`, `gh repo view`.
+- The two `rm .ccpm/initiatives/…-commit-msg.txt` entries — coordinator scripts run these inside the atomic commit recipe (Write → `git commit -F` → `rm`).
+
+**Optional entries** (only if your project also uses CCPM-adjacent tooling outside the coordinator surface):
+- `Bash(make:*)` — for projects that build, test, or lint via `make`. Add the matching pattern for your build tool instead (`Bash(npm run:*)`, `Bash(go test:*)`, `Bash(cargo:*)`, etc.).
+- `Bash(sed:*)`, `Bash(mv:*)` — for sync-phase task renames after GitHub IDs are issued.
 
 ### What each tier covers
 
 | Tier | Where | What |
 |------|-------|------|
 | **Global** | `~/.claude/settings.json` | Read-only utilities, `mkdir`, git read-only, `git worktree`, `basename`, `.ccpm/**` file ops |
-| **Project** | `.claude/settings.local.json` | Git write ops, `make`, `sed` for frontmatter, `mv` for task renames, `gh` for GitHub, TCCPM helper scripts |
+| **Project** | `.claude/settings.local.json` | Coordinator scripts (single allowlist entry covers every `ccpm-*.sh` coordinator plus utilities, including the GitHub PR review-loop scripts), `gh` for GitHub sync and the review loop, narrow `rm` for commit-msg files. Add your project's build tool (`make`, `npm`, `go`, …) separately. |
 | **Prompt** | Not pre-approved | Destructive operations (`rm -rf`, `git push --force`, `git reset --hard`) |
 
 For additional command safety guidance, see `references/command-safety.md`.
@@ -467,6 +579,7 @@ This tailored variant adds the following on top of [upstream CCPM v2](https://gi
 | **Context management** | Create, update, and load project context across sessions |
 | **`@ccpm` explicit invocation** | Prefix with `@ccpm` to bypass Claude's built-in planning mode |
 | **Optional worktree isolation** | One git worktree per initiative for parallel human/agent work — configured globally in `.ccpm/settings.yml` or per-initiative |
+| **GitHub PR review loop** | Push the initiative branch for PR review and have TCCPM address review comments via `gh` (no CCPM data sync). Requires `gh auth login`. See [GitHub PR Review Loop](#github-pr-review-loop). |
 
 ## License
 

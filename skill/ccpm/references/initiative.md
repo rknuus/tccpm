@@ -10,6 +10,7 @@ This phase covers decomposing an initiative into multiple epics, executing them 
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode-detection preflight**: Run the canonical invocation from the [Mode-Detection Preflight](conventions.md#mode-detection-preflight) section to populate `CCPM_TRACKED`, `WORKTREE_ACTIVE`, `ONLINE`, `SYNC_ENABLED`. The branch-creation, worktree, and commit steps below depend on these flags.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists with valid frontmatter (name, description, status, created). If missing: "❌ Initiative not found: `<name>`. Create it first."
 - If epic subdirectories already exist under `.ccpm/initiatives/<name>/`, list them and confirm overwrite before proceeding.
 - Feature name must be kebab-case.
@@ -27,34 +28,13 @@ Identify dependencies between epics. Ensure each epic is independently valuable 
 
 **Hard limit: maximum 10 epics per initiative.** If analysis suggests more, consolidate related work into fewer, broader epics.
 
-**Step 3 — Create the initiative branch:**
-```bash
-git checkout main
-git pull origin main
-```
-
-If no remote is configured, the pull will fail — skip it and continue.
+**Step 3 — Create the initiative branch (and worktree, if enabled).** Invoke the coordinator:
 
 ```bash
-git checkout -b initiative/<name>
-git push -u origin initiative/<name>
+bash <skill-root>/references/scripts/ccpm-create-branch.sh <name>
 ```
 
-If no remote is configured, the push will fail — continue locally.
-
-If the branch already exists, check it out instead of creating.
-
-**Step 3b — Create worktree (if enabled).** Read the initiative's `worktree:` frontmatter field. If `true`:
-
-```bash
-REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
-WORKTREE_PATH="../${REPO_BASENAME}-<name>"
-git worktree add "$WORKTREE_PATH" initiative/<name>
-```
-
-If the worktree already exists at that path, skip with a warning: "Worktree already exists at `<path>` — skipping creation."
-
-Report the worktree path in the post-completion output when created.
+The script reads the initiative's `worktree:` frontmatter and creates the sibling worktree at `../<repo-basename>-<name>/` when the flag is `true`. It checks out `main`, pulls (gated on `ONLINE`), creates `initiative/<name>`, and pushes (gated on `ONLINE`). Existing branches are switched to instead of recreated. Expected status outputs include `branch-created`, `branch-exists`, `worktree-created`, `pushed`. See [Coordinator Scripts](conventions.md#coordinator-scripts) for the full action surface.
 
 **Step 4 — Create epic outlines.** For each epic, create the directory and file:
 
@@ -87,6 +67,14 @@ Brief summary of what this epic covers and its role within the initiative.
 ```
 
 Epic outlines are intentionally rough-scoped — overview, scope, and dependencies only. Detailed technical breakdown happens via epic decomposition.
+
+**Commit each epic outline** by invoking the coordinator once per created epic:
+
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-epic.sh <name> <epic-name>
+```
+
+The script gates on `CCPM_TRACKED` internally; when `.ccpm/` is gitignored, the file stays in the working tree only and the script skips with a status note. Each invocation produces an independent `Epic: <epic-name>` commit so parallel agents on disjoint epic files don't cross-contaminate. See [Coordinator Scripts](conventions.md#coordinator-scripts).
 
 **Step 5 — Quality validation:**
 - All initiative requirements are covered across the epics
@@ -125,21 +113,24 @@ Show the dependency relationships and suggested execution order after the file l
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode-detection preflight**: Run the canonical invocation from the [Mode-Detection Preflight](conventions.md#mode-detection-preflight) section. Phases 1–3 below each consume the same flags; the routine is cached for the session, so the inner phases reuse the result without re-probing.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "❌ Initiative not found. Create it first."
 - If an epic already exists under `.ccpm/initiatives/<name>/<name>/epic.md`, confirm overwrite.
 
 ### Process
 
-This is a convenience wrapper that runs decompose, epic-decompose, and epic-start sequentially without GitHub sync.
+This is a convenience wrapper that runs decompose, epic-decompose, and epic-start sequentially without GitHub sync. No phase below adds commits beyond the ones each sub-flow already produces — Initiative Go is purely a sequencer.
 
-**Phase 1 — Decompose the initiative** into epics following the Initiative Decompose workflow above. Creates the `initiative/<name>` branch from main.
+**Phase 1 — Decompose the initiative** into epics following the Initiative Decompose workflow above. Creates the `initiative/<name>` branch from main; the branch-creation step is gated on `ONLINE` and the epic-outline commit on `CCPM_TRACKED`, exactly as documented there.
 
 **Phase 2 — Decompose each epic** into tasks following the process in `references/structure.md`. For each epic created in Phase 1:
 - Read the epic, analyze for parallelism
 - Create numbered task files using IDs from `.ccpm/next-id`
 - Update the epic with a task summary section
 
-**Phase 3 — Execute all tasks** on the initiative branch following the Starting an Initiative workflow in `references/execute.md`. Collect tasks from all epics, resolve dependencies across epics, and launch agents for ready tasks. Wait for all tasks to complete.
+Task-file commits in this phase use the same `CCPM_TRACKED`-gated [File-Based Commit Protocol](conventions.md#file-based-commit-protocol) as everywhere else; see `references/structure.md` for the recipe.
+
+**Phase 3 — Execute all tasks** on the initiative branch following the Starting an Initiative workflow in `references/execute.md`. Collect tasks from all epics, resolve dependencies across epics, and launch agents for ready tasks. Wait for all tasks to complete. Per-task work commits and any task-file pushes are gated on `CCPM_TRACKED` and `ONLINE` per the recipes in `execute.md` — Initiative Go does not introduce extra commits or pushes here.
 
 If any phase fails, stop and report what completed successfully. Earlier phases' artifacts (epic files, task files) remain intact for manual retry.
 
@@ -236,60 +227,35 @@ Ready to merge to main: merge the <name> initiative
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode-detection preflight**: Run the canonical invocation from the [Mode-Detection Preflight](conventions.md#mode-detection-preflight) section to populate `WORKTREE_ACTIVE` and `ONLINE`. Steps 1, 5, 5b, and 6 below depend on these flags.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists.
 - Verify `initiative/<name>` branch exists. If not: "❌ No branch for initiative: `<name>`"
 - Check for uncommitted changes — block if dirty.
 
 ### Process
 
-**Step 1 — Check out the initiative branch** and pull latest:
+**Step 1 — Validate epic completion.** Read each `epic.md` under `.ccpm/initiatives/<name>/*/epic.md`. If any epic has status != "completed", warn the user and confirm before continuing. The coordinator script (Step 4) blocks merges when epics are incomplete unless `--force-incomplete` is passed; this preflight gives the user an early surface to confirm.
+
+**Step 2 — Run tests** on the initiative branch. Report results. If tests fail, confirm before continuing.
+
+**Step 3 — Update initiative status.** Set `status` to "complete" and add `updated` and `completed` fields with current datetime.
+
+**Step 4 — Merge, cleanup, and archive.** Invoke the coordinator:
+
 ```bash
-git checkout initiative/<name>
-git pull origin initiative/<name>
+bash <skill-root>/references/scripts/ccpm-merge-initiative.sh <name>
 ```
 
-If no remote is configured, the pull will fail — skip it and continue.
+If the user confirmed merge despite incomplete epics in Step 1, pass `--force-incomplete`. The script:
 
-**Step 2 — Validate epic completion.** Read each `epic.md` under `.ccpm/initiatives/<name>/*/epic.md`. If any epic has status != "completed", warn the user and confirm before continuing.
+1. Rebases `initiative/<name>` onto latest `main` (worktree-aware: rebase runs in the worktree's cwd when one exists, since git refuses dual-checkout of the same branch).
+2. Fast-forward-merges into `main` with an inline `Merge initiative: <name>` message.
+3. Removes the sibling worktree if present (BEFORE branch deletion — required, since `git branch -D` fails on a branch checked out in another worktree).
+4. Force-deletes the local `initiative/<name>` branch.
+5. Pushes the branch deletion to origin (gated on `ONLINE`).
+6. Archives `.ccpm/initiatives/<name>/` to `.ccpm/archive/<name>/`.
 
-**Step 3 — Run tests** on the initiative branch. Report results. If tests fail, confirm before continuing.
-
-**Step 4 — Update initiative status.** Set `status` to "complete" and add `updated` and `completed` fields with current datetime.
-
-**Step 5 — Merge to main:**
-```bash
-git checkout main
-git pull origin main
-git merge initiative/<name> --no-ff -m "Merge initiative: <name>
-
-Completed epics:
-- <epic-1>
-- <epic-2>"
-```
-
-**Step 5b — Remove worktree (if present).** Read the initiative's `worktree:` field. If `true`:
-```bash
-REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
-git worktree remove "../${REPO_BASENAME}-<name>"
-```
-
-If the worktree does not exist at that path, the remove will fail — skip it and continue.
-
-**Step 6 — Post-merge cleanup:**
-```bash
-git branch -d initiative/<name>
-git push origin --delete initiative/<name>
-```
-
-If no remote is configured, the push will fail — skip it and continue.
-
-**Step 7 — Archive the initiative:**
-```bash
-mkdir -p .ccpm/archive
-mv .ccpm/initiatives/<name> .ccpm/archive/<name>
-```
-
-This moves the entire initiative directory tree (initiative MD, epic dirs, task files, updates) to the archive. The archive preserves the original structure for historical reference.
+Status outputs include `rebased`, `merged`, `worktree-removed`, `branch-deleted`, `remote-branch-deleted`, `archived`. On rebase conflict, the script aborts the rebase and exits with a clear error; the agent surfaces the message to the user. See [Coordinator Scripts](conventions.md#coordinator-scripts).
 
 ### Post-completion
 
@@ -319,6 +285,7 @@ Cleanup:
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode-detection preflight**: Run the canonical invocation from the [Mode-Detection Preflight](conventions.md#mode-detection-preflight) section to populate `WORKTREE_ACTIVE` and `ONLINE`. Steps 2b and 3 below depend on these flags.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
 - Check for uncommitted changes on `initiative/<name>`. If found, warn the user with details and stop — the user must resolve (commit, stash, or discard) before cancelling.
 
@@ -328,34 +295,27 @@ Cleanup:
 - "Cancel initiative `<name>`? This will delete the initiative branch. Remove files (default) or archive them?"
 - If the user provides a reason, record it.
 
-**Step 2 — Switch to main.** If currently on the initiative branch:
+**Step 2 — Cancel via the coordinator:**
+
 ```bash
-git checkout main
+bash <skill-root>/references/scripts/ccpm-cancel-initiative.sh <name>
 ```
 
-**Step 2b — Remove worktree (if present).** Read the initiative's `worktree:` field. If `true`:
+To archive instead of delete the initiative directory, append `--archive`. To record the user's reason in the archived frontmatter, also append `--reason "<text>"`:
+
 ```bash
-REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
-git worktree remove "../${REPO_BASENAME}-<name>"
+bash <skill-root>/references/scripts/ccpm-cancel-initiative.sh <name> --archive --reason "<text>"
 ```
 
-If the worktree does not exist at that path, the remove will fail — skip it and continue.
+The script:
 
-**Step 3 — Delete the initiative branch:**
-```bash
-git branch -D initiative/<name>
-git push origin --delete initiative/<name>
-```
+1. Pre-checks for uncommitted changes OUTSIDE `.ccpm/initiatives/<name>/` (changes inside that path are about to be deleted/archived anyway and don't block).
+2. Checks out `main`.
+3. Removes the sibling worktree if present (BEFORE branch deletion — same FR-4 ordering as merge).
+4. Force-deletes `initiative/<name>` locally and pushes the deletion to origin (gated on `ONLINE`).
+5. Either `rm -rf .ccpm/initiatives/<name>` (default) or injects `cancelled: true` (and `cancel_reason: …` when `--reason` was given) into the initiative file's frontmatter, then moves the directory to `.ccpm/archive/<name>/`.
 
-If no remote is configured, the push will fail — skip it and continue.
-
-**Step 4 — Remove or archive the initiative directory:**
-- **Remove** (default): delete `.ccpm/initiatives/<name>/`
-- **Archive**: update the initiative frontmatter with `status: cancelled`, `cancelled: <datetime>`, and optionally `cancel_reason: <reason>`. Then move:
-  ```bash
-  mkdir -p .ccpm/archive
-  mv .ccpm/initiatives/<name> .ccpm/archive/<name>
-  ```
+Status outputs include `worktree-removed`, `branch-deleted`, `remote-branch-deleted`, `deleted: <path>` or `archived: <path>`. See [Coordinator Scripts](conventions.md#coordinator-scripts).
 
 ### Post-completion
 
@@ -378,6 +338,7 @@ Initiative cancelled: <name>
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode-detection preflight**: Run the canonical invocation from the [Mode-Detection Preflight](conventions.md#mode-detection-preflight) section to populate `CCPM_TRACKED`. Step 3 below depends on this flag.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
 - Verify `initiative/<name>` branch exists. If not: "No branch for initiative: `<name>`"
 - Verify `.ccpm/initiatives/<name>/<epic-name>/` does not already exist. If it does: "Epic `<epic-name>` already exists in initiative `<name>`"
@@ -385,7 +346,8 @@ Initiative cancelled: <name>
 
 ### Process
 
-**Step 1 — Checkout the initiative branch:**
+**Step 1 — Checkout the initiative branch.** Use a plain `git checkout` (no coordinator needed for a no-op branch switch). The Add Epic flow is run from the project root with the initiative branch already known to exist (per Preflight). Coordinators wrap multi-step recipes; a single `git checkout` is fine inline.
+
 ```bash
 git checkout initiative/<name>
 ```
@@ -421,7 +383,13 @@ Brief summary of what this epic covers and why it was added.
 
 Set `depends_on` to all epics with status `completed` — the new epic builds on their merged work.
 
-**Step 3 — Commit the new epic file** on the initiative branch.
+**Step 3 — Commit the new epic file** on the initiative branch by invoking the coordinator:
+
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-epic.sh <name> <epic-name>
+```
+
+The script gates on `CCPM_TRACKED` internally and skips with a status note when `.ccpm/` is gitignored. See [Coordinator Scripts](conventions.md#coordinator-scripts).
 
 ### Post-completion
 
@@ -445,6 +413,7 @@ Epic added to initiative: <name>
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode-detection preflight**: Run the canonical invocation from the [Mode-Detection Preflight](conventions.md#mode-detection-preflight) section to populate `CCPM_TRACKED`. Step 4 below depends on this flag.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists. If missing: "No initiative found: `<name>`"
 - Verify `initiative/<name>` branch exists. If not: "No branch for initiative: `<name>`"
 - Read initiative frontmatter: if `worktree:` is already `true`, check if worktree exists at expected path. If it does: "Worktree already active at `<path>`."
@@ -452,18 +421,29 @@ Epic added to initiative: <name>
 
 ### Process
 
-**Step 1 — Create worktree:**
+**Step 1 — Update initiative frontmatter.** Set `worktree: true` in `.ccpm/initiatives/<name>/<name>.md`.
+
+**Step 2 — Update existing epic files.** For each epic under `.ccpm/initiatives/<name>/*/epic.md`, set `worktree_path: ../<repo-basename>-<name>` in frontmatter.
+
+**Step 3 — Create the sibling worktree.** Now that the initiative's frontmatter says `worktree: true`, the branch-creation coordinator will read it and add the worktree at `../<repo-basename>-<name>/`:
+
 ```bash
-REPO_BASENAME=$(basename "$(git rev-parse --show-toplevel)")
-WORKTREE_PATH="../${REPO_BASENAME}-<name>"
-git worktree add "$WORKTREE_PATH" initiative/<name>
+bash <skill-root>/references/scripts/ccpm-create-branch.sh <name>
 ```
 
-**Step 2 — Update initiative frontmatter.** Set `worktree: true` in `.ccpm/initiatives/<name>/<name>.md`.
+Since `initiative/<name>` already exists, the script switches to it and adds the worktree (rather than creating the branch from main). Expected status: `branch-exists`, `worktree-created`. See [Coordinator Scripts](conventions.md#coordinator-scripts).
 
-**Step 3 — Update existing epic files.** For each epic under `.ccpm/initiatives/<name>/*/epic.md`, set `worktree_path: ../<repo-basename>-<name>` in frontmatter.
+**Step 4 — Commit the frontmatter updates.** Invoke the initiative coordinator for the initiative file, then the epic coordinator for each touched epic:
 
-**Step 4 — Commit the frontmatter updates** on the initiative branch.
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-initiative.sh <name>
+```
+
+```bash
+bash <skill-root>/references/scripts/ccpm-commit-epic.sh <name> <epic-name>
+```
+
+Each script gates on `CCPM_TRACKED`; when `.ccpm/` is gitignored, the frontmatter updates stay in the working tree only and the scripts skip with status notes.
 
 ### Post-completion
 

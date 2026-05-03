@@ -42,6 +42,13 @@ Add these rules to `~/.claude/CLAUDE.md` so they apply across all projects:
 ### No inline scripts
 - Don't: `python3 -c "import json; ..."` or `ruby -e "..."`
 - Do: Create a script file if parsing is needed, or use native tools
+
+### No `cd <project> && <git|bash> …` wrappers
+- Don't: `cd /path/to/project && bash .claude/skills/ccpm/references/scripts/ccpm-detect-mode.sh <init>`
+- Don't: `cd /path/to/project && git status`
+- Do: Ensure cwd is at the project root first (CCPM recipes assume this — see the "cwd contract" note in `conventions.md` Mode-Detection Preflight), then run `bash .claude/skills/ccpm/references/scripts/ccpm-detect-mode.sh <init>` plain. For the rare case where cwd genuinely cannot be at the project root, use `git -C <project-root> …` (no `cd` wrapper) instead of `cd <project> && git …`.
+
+  *Why*: Claude Code's risky-command monitor flags compound commands that combine `cd` with `git` (or other state-changing operations) as risky and asks the user to approve every such call individually. CCPM phase recipes already perform a "Root check" Preflight step that brings cwd to the project root before any `bash …`/`git …` line runs, so wrapping recipe calls in `cd && …` is both unnecessary and creates per-call approval friction.
 ```
 
 > **Note**: The fenced block above is the literal text to paste into CLAUDE.md.

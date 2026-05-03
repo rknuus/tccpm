@@ -84,12 +84,13 @@ parallelization_factor: <1.0-5.0>
 
 ### Preflight
 0. **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
-1. Verify issue exists and is open: `gh issue view <N> --json state,title,labels,body` — if GitHub is unavailable, read the local task file instead.
-2. Find local task file (as above).
-3. Check for analysis file: `.ccpm/initiatives/<initiative>/<epic>/<N>-analysis.md` — if missing, run analysis first (or do both in sequence: analyze then start).
-4. **Resolve working directory**: Read the initiative file's `worktree:` field.
-   - If `worktree: true`: verify worktree exists at `../<repo-basename>-<initiative-name>/`. Use that directory as the working directory for agents. If missing: "❌ Worktree not found. Run: `@ccpm worktree enable <initiative-name>`"
-   - If `worktree: false` or absent: verify initiative branch is checked out via `git branch --show-current`. If not, check it out. Agents work in the project root.
+1. **Mode detection**: After the root check, run the canonical [Mode-Detection Preflight](conventions.md#mode-detection-preflight) so `CCPM_TRACKED`, `METHOD_DIR`, `METHOD_TRACKED`, `WORKTREE_ACTIVE`, `ONLINE`, and `SYNC_ENABLED` are available for the rest of this phase. The flags are passed through to every agent launched below.
+2. Verify issue exists and is open (only when `SYNC_ENABLED=true`): `gh issue view <N> --json state,title,labels,body`. If `SYNC_ENABLED=false`, read the local task file instead.
+3. Find local task file (as above).
+4. Check for analysis file: `.ccpm/initiatives/<initiative>/<epic>/<N>-analysis.md` — if missing, run analysis first (or do both in sequence: analyze then start).
+5. **Resolve working directory**: use `WORKTREE_ACTIVE` from the mode detection.
+   - If `WORKTREE_ACTIVE=true`: verify worktree exists at `../<repo-basename>-<initiative-name>/`. Use that directory as the working directory for agents. If missing: "❌ Worktree not found. Run: `@ccpm worktree enable <initiative-name>`"
+   - If `WORKTREE_ACTIVE=false`: verify initiative branch is checked out via `git branch --show-current`. If not, check it out. Agents work in the project root.
 
 ### Process
 
@@ -118,7 +119,7 @@ status: in_progress
 - Starting implementation
 ```
 
-**Step 3 — Launch parallel agents** for each stream that can start immediately:
+**Step 3 — Launch parallel agents** for each stream that can start immediately. The agent's commit and push surface contracts to two coordinator-script invocations — the agent never composes git commands directly.
 
 ```yaml
 Task:
@@ -126,7 +127,16 @@ Task:
   subagent_type: "general-purpose"
   prompt: |
     You are working on Issue #<N>.
-    Working directory: <worktree_path if worktree, otherwise project root>
+
+    **Working directory contract.** Your working directory is:
+      - the project root (`<repo-toplevel>`) when no worktree is in use, OR
+      - the sibling worktree path `../<repo-basename>-<initiative-name>/` when this initiative has `worktree: true`.
+    The orchestrator has placed you in the right directory before launching this prompt. Your responsibilities while running:
+      - Run every Bash command as a bare relative-path form. The cwd is already correct.
+      - **Never** prepend `cd <path> && …` to any command. Compound `cd && <cmd>` invocations trip Claude Code's risky-command monitor and force a per-call approval prompt.
+      - **Never** use `git -C <path> …` form. The cwd is correct; bare `git` is sufficient. (See `references/command-safety.md` for the rationale.)
+      - **Never** chain commands with `&&`, `||`, or `;`. One operation per Bash call.
+
     Branch: initiative/<initiative-name>
 
     Your stream: <stream_name>
@@ -136,19 +146,41 @@ Task:
     Instructions:
     1. Read full task from: .ccpm/initiatives/<initiative>/<epic>/<N>.md
     2. Read analysis from: .ccpm/initiatives/<initiative>/<epic>/<N>-analysis.md
-    3. Work ONLY in your assigned files
-    4. Commit frequently: "Issue #<N>: <specific change>"
+    3. Work ONLY in your assigned files.
+    4. Commit frequently via the coordinator script (recipe below).
     5. Update progress in: .ccpm/initiatives/<initiative>/<epic>/updates/<N>/stream-<X>.md
-    6. If you need to touch files outside your scope, note it in your progress file and wait
-    7. Never use --force on git operations
-    8. Follow command safety rules: use Read/Grep/Glob/Edit tools for file operations. Keep Bash commands simple — no &&, no 2>/dev/null, one operation per call.
+    6. If you need to touch files outside your scope, note it in your progress file and wait.
+    7. Never use --force on git operations.
+    8. Follow command safety rules from references/conventions.md (Command Safety) and the agent guidance in [Agent Command Construction](#agent-command-construction). Use Read/Grep/Glob/Edit tools for file operations; keep Bash commands simple — no `&&`, no `2>/dev/null`, no `$()`, one operation per call.
+
+    Per-task commit recipe:
+      a. Use the Write tool to create `.ccpm/initiatives/<initiative>/<epic>/<N>-commit-msg.txt`.
+         - Subject: `Issue #<N>: <description>`
+         - Blank line, then body describing what changed.
+         - Trailer: `Co-Authored-By: <name> <email>` (per project convention).
+         The task-id-scoped path means parallel agents on different task IDs cannot collide.
+      b. Invoke the coordinator (single Bash tool call):
+
+         bash <skill-root>/references/scripts/ccpm-commit-task-work.sh <initiative> <epic> <N> --message-file .ccpm/initiatives/<initiative>/<epic>/<N>-commit-msg.txt --push -- <your-stream-files>
+
+         The script validates the subject format, applies the FR-3 staging matrix internally (code paths always; progress file when `CCPM_TRACKED=true`), runs the FR-8 atomic commit, removes the message file on success (preserves it on failure for diagnosis), and — with `--push` — invokes the push coordinator gated on `ONLINE`. See [Coordinator Scripts](conventions.md#coordinator-scripts).
+      c. Read the script's status output:
+         - `committed: Issue #<N>: <description>` — commit produced.
+         - `no changes to commit (subject: …)` — no diff (unusual mid-stream; investigate).
+         - `pushed: initiative/<initiative-name>` — push succeeded (when --push and ONLINE=true).
+         - `skipped: offline` — push skipped (ONLINE=false).
+         - Non-zero exit + stderr — surface to the orchestrator.
+
+    Progress comment on GitHub (gated on `SYNC_ENABLED`, which the orchestrator has determined):
+      - When `SYNC_ENABLED=true`: `gh issue comment <N> --body "<short status>"` to post incremental progress.
+      - When `SYNC_ENABLED=false`: skip the `gh` call silently.
 
     Complete your stream's work and mark status: completed when done.
 ```
 
 Streams with unmet dependencies are queued — launch them as their dependencies complete.
 
-**Step 4 — Assign on GitHub** (skip in local-only mode):
+**Step 4 — Assign on GitHub** (only when `SYNC_ENABLED=true`):
 ```bash
 gh issue edit <N> --add-assignee @me --add-label "in-progress"
 ```
@@ -187,6 +219,7 @@ Sync updates: "sync issue <N>"
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
+- **Mode detection**: After the root check, run the canonical [Mode-Detection Preflight](conventions.md#mode-detection-preflight) so `CCPM_TRACKED`, `METHOD_DIR`, `METHOD_TRACKED`, `WORKTREE_ACTIVE`, `ONLINE`, and `SYNC_ENABLED` are available for the rest of this phase. The flags are passed through to every agent launched below.
 - Verify `.ccpm/initiatives/<name>/<name>.md` exists.
 - Check for uncommitted changes: `git status --porcelain` — block if dirty.
 - Verify initiative branch exists and is checked out: `git branch --show-current` should match `initiative/<name>`.
@@ -195,7 +228,7 @@ Sync updates: "sync issue <N>"
 
 **Step 1 — Collect all task files** across all epics in the initiative. Glob for `.ccpm/initiatives/<name>/*/[0-9]*.md` to gather tasks from every epic directory. Parse each task's frontmatter for `status`, `depends_on`, `parallel`, and `conflicts_with`.
 
-**Worktree resolution**: Read the initiative's `worktree:` field. If `true`, resolve the worktree path (`../<repo-basename>-<initiative-name>/`) and pass it to all agent launches as the working directory. If `false` or absent, agents work in the project root on the initiative branch.
+**Worktree resolution**: use `WORKTREE_ACTIVE` from the mode detection. If `true`, resolve the worktree path (`../<repo-basename>-<initiative-name>/`) and pass it to all agent launches as the working directory. If `false`, agents work in the project root on the initiative branch.
 
 **Step 2 — Build unified dependency graph.** Treat all tasks as one pool regardless of which epic they belong to. Task IDs in `depends_on` and `conflicts_with` can reference tasks from any epic within the initiative. Detect circular dependencies across the full graph — if found: "❌ Circular dependency detected: `<details>`"
 
@@ -207,7 +240,7 @@ Sync updates: "sync issue <N>"
 
 **Step 4 — Analyze any ready tasks** that don't have an analysis file yet (run issue analysis inline).
 
-**Step 5 — Launch agents** for all ready tasks following the same per-issue agent launch pattern above.
+**Step 5 — Launch agents** for all ready tasks following the same per-issue agent launch pattern above. Each agent uses the per-task commit recipe documented in [Starting an Issue](#starting-an-issue) Step 3 — the agent and coordinator share one recipe (no separate agent path), and the task-id-scoped message-file path keeps parallel agents on different task IDs from colliding.
 
 **Step 6 — Create/update** `.ccpm/initiatives/<name>/execution-status.md` with all active agents and queued tasks, organized by epic for readability.
 
@@ -249,9 +282,10 @@ Agents must follow the Command Safety rules from `references/conventions.md`. In
 When multiple agents work on the initiative branch simultaneously:
 
 - Each agent works only on files in its assigned stream scope.
-- Agents commit frequently with `Issue #<N>: <description>` format.
-- Before modifying a shared file, check `git status <file>` — if another agent has it modified, wait and pull first.
-- Agents sync via commits before starting new file work. When working in a worktree: `git -C <worktree_path> pull --rebase origin initiative/<name>`. Otherwise: `git pull --rebase origin initiative/<name>`. If no remote is configured, skip the pull and continue.
+- Agents commit and push via `ccpm-commit-task-work.sh` (with `--push`) per the recipe in [Starting an Issue](#starting-an-issue) Step 3. The task-id-scoped message-file path keeps parallel agents on disjoint task IDs from colliding.
+- Before modifying a shared file, check its modification state with the Read tool — if another agent has it modified, wait and pull first.
+- Agents sync via commits before starting new file work. Pull-rebase is performed by the coordinator script when needed (see the script's retry-on-non-fast-forward behaviour). When offline, the script silently skips the pull.
+- `gh issue comment` for progress is gated solely on `SYNC_ENABLED=true`; the agent emits the call directly (the `gh` wrapper effort is deferred). The push step is encapsulated in the coordinator and gated solely on `ONLINE`. The two flags do not cross-gate each other (see [Independent gating](conventions.md#independent-gating)).
 - Conflicts are never auto-resolved — agents report them and pause.
 - No `--force` flags ever.
 

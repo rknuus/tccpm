@@ -1,6 +1,6 @@
 ---
 name: ccpm
-description: "CCPM - spec-driven project management: Initiative → Epic → GitHub Issues → parallel agents → shipped code. Always activate when the user prefixes a message with '@ccpm'. Use this skill for anything in the software delivery lifecycle: writing an initiative ('write an initiative for X', 'create an initiative for X', 'new initiative for X'), decomposing an initiative into multiple epics ('decompose the X initiative into epics', 'break X into epics'), start all epics ('start all epics for X', 'run all epics'), merge initiative ('merge the X initiative'), cancel initiative ('cancel initiative X', 'abandon X'), add epic to initiative ('add epic Y to X'), parsing an initiative into an epic, decomposing an epic into tasks, syncing to GitHub ('sync the X epic', 'push tasks to github'), starting work on an issue ('start working on issue N', 'let's work on issue N'), analyzing parallel work streams, running standups ('standup', 'run the standup'), checking status ('what's next', 'what's blocked', 'what are we working on'), closing issues, or merging an epic. Use ccpm when the user mentions initiatives, epics, tasks, or shipping features with traceability. Do NOT use for: debugging code, writing tests, reviewing PRs, generic planning without delivery context, or raw GitHub issue/PR operations."
+description: "CCPM - spec-driven project management: Initiative → Epic → GitHub Issues → parallel agents → shipped code. Always activate when the user prefixes a message with '@ccpm'. Use this skill for anything in the software delivery lifecycle: writing an initiative ('write an initiative for X', 'create an initiative for X', 'new initiative for X'), decomposing an initiative into multiple epics ('decompose the X initiative into epics', 'break X into epics'), start all epics ('start all epics for X', 'run all epics'), merge initiative ('merge the X initiative'), cancel initiative ('cancel initiative X', 'abandon X'), add epic to initiative ('add epic Y to X'), parsing an initiative into an epic, decomposing an epic into tasks, syncing to GitHub ('sync the X epic', 'push tasks to github'), starting work on an issue ('start working on issue N', 'let's work on issue N'), analyzing parallel work streams, running standups ('standup', 'run the standup'), checking status ('what's next', 'what's blocked', 'what are we working on'), closing issues, merging an epic, pushing an initiative branch for GitHub PR review ('push the X initiative for review', 'push X for review'), or addressing review comments on the PR ('address review comments for X', 'address the review comments'). Use ccpm when the user mentions initiatives, epics, tasks, or shipping features with traceability. Do NOT use for: debugging code, writing tests, reviewing PRs, generic planning without delivery context, or raw GitHub issue/PR operations."
 ---
 
 # CCPM - Claude Code Project Manager
@@ -55,6 +55,11 @@ Before doing anything, read `references/conventions.md` for path standards, fron
 **When**: User wants to create, update, or load project context.
 **Read**: `references/context.md`
 **Covers**: Creating baseline context, refreshing with recent changes, loading context in new sessions.
+
+## GitHub PR Review Loop
+**When**: An initiative has been implemented and the user wants a GitHub PR review before merging — or wants TCCPM to address review comments left on the PR.
+**Read**: `references/review.md`
+**Covers**: Pushing the initiative branch for review, fetching unresolved review comments via `gh`, addressing each comment with a code edit + thread reply, and re-pushing for re-review. Initiative-level only. Initiatives, epics, and tasks are **not** synced to GitHub Issues — only the branch and the PR conversation cross. Requires `gh` to be installed and authenticated (`gh auth login`).
 
 ## Command Safety
 **When**: User wants to reduce permission prompts for non-CCPM commands (builds, tests, linters).
@@ -118,6 +123,8 @@ Cancel initiative:  "cancel initiative X" / "abandon X"
 Add epic:           "add epic Y to X" / "new epic Y for X"
 Enable worktree:  "worktree enable X" or "@ccpm worktree enable X"
 Report a bug:       "found a bug in issue 42" / "testing issue 42 revealed X"
+Push for review:    "push the X initiative for review"           (requires gh)
+Address comments:   "address review comments for X"               (requires gh)
 Create context:     "create context" or "set up context"
 Update context:     "update context" or "refresh context"
 Load context:       "prime context" or "load context"

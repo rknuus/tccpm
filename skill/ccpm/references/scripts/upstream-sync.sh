@@ -85,7 +85,6 @@ FORK_ONLY=(
   "references/initiative.md"
   "references/context.md"
   "references/scripts/ccpm-find.sh"
-  "references/scripts/ccpm-git-commit.sh"
   "references/scripts/ccpm-git-info.sh"
   "references/scripts/paths-lib.sh"
   "references/scripts/upstream-sync.sh"

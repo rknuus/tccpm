@@ -400,7 +400,7 @@ Add "with worktree" or "without worktree" to your request:
 - Agents work in the worktree directory instead of the project root
 - Cleaned up automatically on initiative merge or cancel
 
-The `worktree:` key is independent of the project-mode keys documented below — enabling worktrees does not change `.ccpm/` tracking, architect-directory tracking, or GitHub-sync behaviour.
+The `worktree:` key is independent of the project-mode keys documented below — enabling worktrees does not change `.ccpm/` tracking or GitHub-sync behaviour.
 
 ## GitHub PR Review Loop
 
@@ -435,13 +435,11 @@ See [`references/review.md`](references/review.md) for the full process, error h
 
 ## Project-Mode Settings
 
-`.ccpm/settings.yml` also accepts four optional keys that override CCPM's auto-detection of project mode (whether `.ccpm/` is tracked, whether an architect directory is present, and whether GitHub sync is enabled). Each key is independent — set only the ones you need to override; the rest fall back to auto-detection. The detection contract (auto-detection sources, the six runtime flags, caching) is documented in `references/conventions.md` under "Project-Mode Detection".
+`.ccpm/settings.yml` also accepts optional keys that override CCPM's auto-detection of project mode (whether `.ccpm/` is tracked and whether GitHub sync is enabled). Each key is independent — set only the ones you need to override; the rest fall back to auto-detection. The detection contract (auto-detection sources, the six runtime flags, caching) is documented in `references/conventions.md` under "Project-Mode Detection".
 
 | Key | Type | Default when absent | Use case |
 |---|---|---|---|
 | `ccpm_tracked` | boolean | auto-detected via `git check-ignore .ccpm/` | Force-override when the auto-detected answer is wrong (e.g. transitioning a project from tracked to ignored without changing `.gitignore` yet) |
-| `method_dir` | string (relative path) | auto-detected via glob `*.method` at the repo root (multi-match fails fast) | Disambiguate when multiple `*.method` directories exist, or pin a non-standard architect directory path |
-| `method_tracked` | boolean | auto-detected via `git check-ignore <method_dir>/`; forced `false` when no architect directory exists | Force-override architect-directory tracking independently of `.ccpm/` tracking |
 | `github_sync` | boolean | auto-detected via `gh auth status` and `gh` on PATH | Pin sync on/off so transient `gh` auth blips do not flip CCPM's behaviour mid-session |
 
 ### Examples
@@ -450,22 +448,6 @@ Open-source fork that wants `.ccpm/` out of the upstream history while keeping `
 
 ```yaml
 ccpm_tracked: false
-github_sync: true
-```
-
-Solo dev who tracks an ACCPM architect directory but ignores `.ccpm/`:
-
-```yaml
-ccpm_tracked: false
-method_dir: foo.method
-method_tracked: true
-```
-
-Team using ACCPM as the canonical workflow with both tracked and sync explicitly on:
-
-```yaml
-ccpm_tracked: true
-method_tracked: true
 github_sync: true
 ```
 
@@ -530,8 +512,7 @@ Add these to `.claude/settings.local.json` in your project root. The required en
 {
   "permissions": {
     "allow": [
-      "Bash(bash *ccpm/references/scripts/*.sh *)",
-      "Bash(bash *ccpm/references/scripts/*.sh)",
+      "Bash(bash *ccpm/references/scripts/*)",
       "Bash(gh:*)",
       "Bash(rm .ccpm/initiatives/*-commit-msg.txt)",
       "Bash(rm .ccpm/initiatives/*/*/*-commit-msg.txt)"
@@ -540,13 +521,12 @@ Add these to `.claude/settings.local.json` in your project root. The required en
 }
 ```
 
-**Why so short?** CCPM phase docs delegate every git/GitHub action — branch creation, commits, push, merge, cancel, worktree management, the GitHub PR review-loop pushes and replies — to coordinator scripts. The single `Bash(bash *ccpm/references/scripts/*.sh *)` pattern (plus the no-arg variant for scripts like `init.sh`) authorizes every coordinator call. See [Coordinator Scripts](references/conventions.md#coordinator-scripts).
+**Why so short?** CCPM phase docs delegate every git/GitHub action — branch creation, commits, push, merge, cancel, worktree management, the GitHub PR review-loop pushes and replies — to coordinator scripts. The single `Bash(bash *ccpm/references/scripts/*)` pattern authorizes every coordinator call (with or without arguments). See [Coordinator Scripts](references/conventions.md#coordinator-scripts).
 
-**Why the leading `*` in the path pattern?** The recommended install symlinks the skill into your project (`.claude/skills/ccpm → /path/to/tccpm/skill/ccpm`). Claude Code's permission engine evaluates allow rules against **both** the symlink path *and* the resolved target — both must match for the rule to apply unprompted. A pattern anchored at `.claude/skills/ccpm/...` matches the symlink but not the resolved target (which lives outside the project, e.g. `/Users/<you>/path/to/tccpm/skill/ccpm/...`), and the call would still prompt. The leading `*` matches any prefix, so both paths satisfy the rule. If you copied the skill instead of symlinking, the narrower `Bash(bash .claude/skills/ccpm/references/scripts/*.sh *)` form also works — but the wildcard form is safe in both cases. See the [official permissions docs](https://code.claude.com/docs/en/permissions.md) for the dual-path rule.
+**Why the leading `*` in the path pattern?** The recommended install symlinks the skill into your project (`.claude/skills/ccpm → /path/to/tccpm/skill/ccpm`). Claude Code's permission engine evaluates allow rules against **both** the symlink path *and* the resolved target — both must match for the rule to apply unprompted. A pattern anchored at `.claude/skills/ccpm/...` matches the symlink but not the resolved target (which lives outside the project, e.g. `/Users/<you>/path/to/tccpm/skill/ccpm/...`), and the call would still prompt. The leading `*` matches any prefix, so both paths satisfy the rule. If you copied the skill instead of symlinking, the narrower `Bash(bash .claude/skills/ccpm/references/scripts/*)` form also works — but the wildcard form is safe in both cases. See the [official permissions docs](https://code.claude.com/docs/en/permissions.md) for the dual-path rule.
 
 **Required entries**:
-- `Bash(bash *ccpm/references/scripts/*.sh *)` — every coordinator script invocation (with arguments). The leading `*` covers symlinked installs.
-- `Bash(bash *ccpm/references/scripts/*.sh)` — no-arg variant (some helper scripts take no arguments and the wildcard pattern requires at least one).
+- `Bash(bash *ccpm/references/scripts/*)` — every coordinator script invocation under `references/scripts/` (with or without arguments). The trailing `/*` matches any file under that directory, including non-`.sh` helpers; this is intentional and safe because the directory holds only CCPM coordinator scripts. The leading `*` covers symlinked installs.
 - `Bash(gh:*)` — sync phase calls `gh issue …` inline; the GitHub PR review-loop coordinators call `gh api`, `gh pr list`, `gh repo view`.
 - The two `rm .ccpm/initiatives/…-commit-msg.txt` entries — coordinator scripts run these inside the atomic commit recipe (Write → `git commit -F` → `rm`).
 

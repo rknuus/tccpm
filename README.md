@@ -10,7 +10,7 @@
 
 Stop losing context. Stop blocking on tasks. Stop shipping bugs. TCCPM turns Initiatives into epics, epics into tasks, and tasks into production code — with full traceability at every step.
 
-> **This is a tailored variant** of [automazeio/ccpm](https://github.com/automazeio/ccpm) v2 with additional features: multi-epic initiatives, local-only mode (GitHub optional), context management, `.ccpm/` data separation, globally unique task IDs, `@ccpm` explicit invocation, and an optional GitHub PR review loop.
+> **This is a tailored variant** of [automazeio/ccpm](https://github.com/automazeio/ccpm) v2 with additional features: multi-epic initiatives, local-only mode (GitHub optional), context management, `.ccpm/` data separation, globally unique task IDs, `/ccpm` explicit invocation, and an optional GitHub PR review loop.
 
 ## Table of Contents
 
@@ -58,9 +58,9 @@ graph LR
 Go from idea to running agents in one step:
 
 ```
-@ccpm create an initiative for memory-system     # Brainstorm and write the initiative
-@ccpm initiative-go memory-system                # Parse -> decompose -> start agents
-@ccpm merge the memory-system initiative         # Merge everything to main
+/ccpm create an initiative for memory-system     # Brainstorm and write the initiative
+/ccpm initiative-go memory-system                # Parse -> decompose -> start agents
+/ccpm merge the memory-system initiative         # Merge everything to main
 ```
 
 ### Step-by-Step — Single Epic, Full Control
@@ -68,18 +68,18 @@ Go from idea to running agents in one step:
 Pause between phases to review and refine:
 
 ```
-@ccpm create an initiative for memory-system     # Brainstorm
-@ccpm decompose memory-system into epics         # Convert to technical epic(s)
-@ccpm break down the memory-system epic          # Break into tasks
-@ccpm start the memory-system epic               # Launch parallel agents
+/ccpm create an initiative for memory-system     # Brainstorm
+/ccpm decompose memory-system into epics         # Convert to technical epic(s)
+/ccpm break down the memory-system epic          # Break into tasks
+/ccpm start the memory-system epic               # Launch parallel agents
 
 # Optional GitHub PR review loop (requires gh auth login):
-@ccpm push the memory-system initiative for review   # Push branch; open PR manually
+/ccpm push the memory-system initiative for review   # Push branch; open PR manually
 # (review on GitHub; leave comments)
-@ccpm address review comments for memory-system      # Apply fixes + reply on threads + re-push
+/ccpm address review comments for memory-system      # Apply fixes + reply on threads + re-push
 # (re-review; loop until satisfied)
 
-@ccpm merge the memory-system initiative         # Merge everything to main
+/ccpm merge the memory-system initiative         # Merge everything to main
 ```
 
 ### Multi-Epic — Large Initiatives (up to 10 epics)
@@ -87,26 +87,26 @@ Pause between phases to review and refine:
 For features that need multiple coordinated epics:
 
 ```
-@ccpm create an initiative for auth-system       # Brainstorm
-@ccpm decompose auth-system into epics           # Break into multiple epics
+/ccpm create an initiative for auth-system       # Brainstorm
+/ccpm decompose auth-system into epics           # Break into multiple epics
 
 # Decompose each epic (review and refine between steps):
-@ccpm break down the login-flow epic             # Break first epic into tasks
-@ccpm break down the oauth-providers epic        # Break second epic into tasks
+/ccpm break down the login-flow epic             # Break first epic into tasks
+/ccpm break down the oauth-providers epic        # Break second epic into tasks
 
 # Start all epics sequentially — no interaction until done:
-@ccpm start all epics for auth-system
+/ccpm start all epics for auth-system
 
 # Optional GitHub PR review loop (requires gh auth login):
-@ccpm push the auth-system initiative for review     # Push branch; open PR manually
+/ccpm push the auth-system initiative for review     # Push branch; open PR manually
 # (review on GitHub; leave comments)
-@ccpm address review comments for auth-system        # Apply fixes + reply on threads + re-push
+/ccpm address review comments for auth-system        # Apply fixes + reply on threads + re-push
 # (re-review; loop until satisfied)
 
-@ccpm merge the auth-system initiative           # Merge everything to main
+/ccpm merge the auth-system initiative           # Merge everything to main
 ```
 
-> **Tip:** Prefix any message with `@ccpm` to ensure CCPM handles it (bypasses Claude's built-in planning mode). You can also use natural language — CCPM activates when you mention initiatives, epics, or tasks.
+> **Tip:** Prefix any message with `/ccpm` to ensure CCPM handles it (bypasses Claude's built-in planning mode). You can also use natural language — CCPM activates when you mention initiatives, epics, or tasks.
 
 ## What Makes This Different?
 
@@ -116,7 +116,7 @@ For features that need multiple coordinated epics:
 | Serial task execution | **Parallel agents** on independent tasks |
 | "Vibe coding" from memory | **Spec-driven** with full traceability |
 | Progress hidden in branches | **Transparent audit trail** in local files |
-| Manual task coordination | **Intelligent prioritization** via `@ccpm what's next` |
+| Manual task coordination | **Intelligent prioritization** via `/ccpm what's next` |
 
 ## Core Principle: No Vibe Coding
 
@@ -163,7 +163,7 @@ The skill itself (SKILL.md, reference docs, scripts) lives in `skill/ccpm/` with
 ### 1. Plan — Capture requirements
 
 ```
-@ccpm create an initiative for feature-name
+/ccpm create an initiative for feature-name
 ```
 Launches comprehensive brainstorming to create an Initiative capturing vision, user stories, success criteria, and constraints.
 
@@ -172,7 +172,7 @@ Launches comprehensive brainstorming to create an Initiative capturing vision, u
 ### 2. Initiative — Multi-epic decomposition
 
 ```
-@ccpm decompose feature-name into epics
+/ccpm decompose feature-name into epics
 ```
 Breaks the initiative into 1-10 epics with dependency ordering.
 
@@ -181,7 +181,7 @@ Breaks the initiative into 1-10 epics with dependency ordering.
 ### 3. Structure — Break it down
 
 ```
-@ccpm break down the epic-name epic into tasks
+/ccpm break down the epic-name epic into tasks
 ```
 Breaks each epic into concrete, actionable tasks (up to 10 per epic) with acceptance criteria, effort estimates, and parallelization flags.
 
@@ -190,16 +190,16 @@ Breaks each epic into concrete, actionable tasks (up to 10 per epic) with accept
 ### 4. Execute — Start building
 
 ```
-@ccpm start the epic-name epic
-@ccpm what's next
+/ccpm start the epic-name epic
+/ccpm what's next
 ```
 Specialized agents implement tasks while maintaining progress updates. All tasks execute on the initiative branch.
 
 ### 5. Review on GitHub (Optional)
 
 ```
-@ccpm push the feature-name initiative for review
-@ccpm address review comments for feature-name
+/ccpm push the feature-name initiative for review
+/ccpm address review comments for feature-name
 ```
 Push the initiative branch to GitHub so a PR review can happen before merge. After comments are left on the PR, the second command fetches unresolved threads via `gh`, applies fixes, replies on each thread, and re-pushes. Loop the second command until you are satisfied — threads are not auto-resolved; you decide. CCPM data (initiatives, epics, tasks) is **not** synced to GitHub Issues; only the branch and PR conversation cross.
 
@@ -208,34 +208,34 @@ Requires `gh` to be installed and authenticated (`gh auth login`). See [GitHub P
 ### 6. Track and Merge
 
 ```
-@ccpm what's our status
-@ccpm merge the feature-name initiative
+/ccpm what's our status
+/ccpm merge the feature-name initiative
 ```
 Merges the initiative branch into main. Validates task completion and runs tests before merging.
 
 ## Usage
 
-TCCPM is an Agent Skill activated via natural language. Prefix with `@ccpm` for explicit invocation, or use CCPM vocabulary (initiative, epic, task) for intent-based activation.
+TCCPM is an Agent Skill activated via natural language. Prefix with `/ccpm` for explicit invocation, or use CCPM vocabulary (initiative, epic, task) for intent-based activation.
 
 ### Quick Reference
 
 ```
-Create initiative:   @ccpm create an initiative for X
-Decompose:           @ccpm decompose X into epics
-Break into tasks:    @ccpm break down the X epic
-Start epic:          @ccpm start the X epic
-Start all epics:     @ccpm start all epics for X
-Check status:        @ccpm what's our status / @ccpm standup
-What's next:         @ccpm what should I work on next
-What's blocked:      @ccpm what's blocked
-Push for review:     @ccpm push the X initiative for review     (requires gh)
-Address comments:    @ccpm address review comments for X        (requires gh)
-Merge initiative:    @ccpm merge the X initiative
-Create context:      @ccpm create context
-Load context:        @ccpm prime context
-Search:              @ccpm search for X
-Validate:            @ccpm validate project state
-Enable worktree:     @ccpm worktree enable X
+Create initiative:   /ccpm create an initiative for X
+Decompose:           /ccpm decompose X into epics
+Break into tasks:    /ccpm break down the X epic
+Start epic:          /ccpm start the X epic
+Start all epics:     /ccpm start all epics for X
+Check status:        /ccpm what's our status / /ccpm standup
+What's next:         /ccpm what should I work on next
+What's blocked:      /ccpm what's blocked
+Push for review:     /ccpm push the X initiative for review     (requires gh)
+Address comments:    /ccpm address review comments for X        (requires gh)
+Merge initiative:    /ccpm merge the X initiative
+Create context:      /ccpm create context
+Load context:        /ccpm prime context
+Search:              /ccpm search for X
+Validate:            /ccpm validate project state
+Enable worktree:     /ccpm worktree enable X
 ```
 
 > GitHub integration is optional. TCCPM works in local-only mode without `gh`. The GitHub PR review loop and `gh issue …` sync both require `gh auth login`.
@@ -290,14 +290,14 @@ Your main conversation becomes the conductor, not the orchestra.
 
 ```
 # Analyze what can be parallelized
-@ccpm start the memory-system epic
+/ccpm start the memory-system epic
 
 # Watch the magic
 # 12 agents working across 3 issues
 # All on: initiative/memory-system branch
 
 # One clean merge when done
-@ccpm merge the memory-system initiative
+/ccpm merge the memory-system initiative
 ```
 
 ## Key Features & Benefits
@@ -355,13 +355,13 @@ CCPM scripts and operations work best when common commands are pre-approved in C
 3. **Initialize TCCPM** in Claude Code:
 
    ```
-   @ccpm init
+   /ccpm init
    ```
 
 4. **Start your first feature**:
 
    ```
-   @ccpm create an initiative for your-feature-name
+   /ccpm create an initiative for your-feature-name
    ```
 
 > GitHub is optional for the core workflow — TCCPM works in local-only mode without `gh`. The GitHub PR review loop (push for review / address review comments) and `gh issue …` sync both require `gh auth login`.
@@ -383,14 +383,14 @@ worktree: true
 Add "with worktree" or "without worktree" to your request:
 
 ```
-@ccpm create an initiative for auth-system with worktree
-@ccpm create an initiative for small-fix without worktree
+/ccpm create an initiative for auth-system with worktree
+/ccpm create an initiative for small-fix without worktree
 ```
 
 ### Enable on an existing initiative
 
 ```
-@ccpm worktree enable auth-system
+/ccpm worktree enable auth-system
 ```
 
 ### How it works
@@ -419,11 +419,11 @@ The review commands run a `gh` preflight and abort with an actionable message if
 ### The Loop
 
 ```
-@ccpm push the <name> initiative for review     # Push branch; user opens PR manually
+/ccpm push the <name> initiative for review     # Push branch; user opens PR manually
 # (user reviews on GitHub; leaves comments)
-@ccpm address review comments for <name>        # Apply fixes, reply on each thread, push again
+/ccpm address review comments for <name>        # Apply fixes, reply on each thread, push again
 # (user re-reviews; loops as needed)
-@ccpm merge the <name> initiative               # When satisfied, existing merge flow
+/ccpm merge the <name> initiative               # When satisfied, existing merge flow
 ```
 
 ### What each command does
@@ -557,7 +557,7 @@ This tailored variant adds the following on top of [upstream CCPM v2](https://gi
 | **Root anchoring** | All scripts `cd` to git root, ensuring consistent `.ccpm/` resolution |
 | **Multi-epic initiatives** | Decompose initiatives into 1-10 epics with dependency ordering |
 | **Context management** | Create, update, and load project context across sessions |
-| **`@ccpm` explicit invocation** | Prefix with `@ccpm` to bypass Claude's built-in planning mode |
+| **`/ccpm` explicit invocation** | Prefix with `/ccpm` to bypass Claude's built-in planning mode |
 | **Optional worktree isolation** | One git worktree per initiative for parallel human/agent work — configured globally in `.ccpm/settings.yml` or per-initiative |
 | **GitHub PR review loop** | Push the initiative branch for PR review and have TCCPM address review comments via `gh` (no CCPM data sync). Requires `gh auth login`. See [GitHub PR Review Loop](#github-pr-review-loop). |
 

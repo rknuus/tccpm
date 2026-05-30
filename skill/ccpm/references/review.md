@@ -55,7 +55,7 @@ The coordinators run a `gh` preflight and abort with an actionable message if `g
 
 - "push the `<name>` initiative for review"
 - "push `<name>` for review"
-- "@ccpm push <name> for review"
+- "/ccpm push <name> for review"
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.
@@ -106,7 +106,7 @@ In every case: **do not** run `git remote -v`, `git ls-remote`, or any other dia
 
 - "address review comments for `<name>`"
 - "address the review comments"
-- "@ccpm address review comments for <name>"
+- "/ccpm address review comments for <name>"
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.

@@ -47,9 +47,9 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 ## Command Authorization
 
-An explicit `@ccpm` command is authorization to proceed. Do not ask "shall I proceed?" or "approve this plan?" when the user has already given a command.
+An explicit `/ccpm` command is authorization to proceed. Do not ask "shall I proceed?" or "approve this plan?" when the user has already given a command.
 
-- **Proceed by default**: `@ccpm decompose` means create the task files. `@ccpm initiative-go` means run all phases. Show the result, not a preview.
+- **Proceed by default**: `/ccpm decompose` means create the task files. `/ccpm initiative-go` means run all phases. Show the result, not a preview.
 - **Report, don't ask**: After completing work, report what was done (e.g., "Created 5 tasks for epic: auth"). Do not present a plan and wait for approval.
 - **Prompt only when destructive or ambiguous**: Overwriting existing files, merging with incomplete epics, or failing tests warrant a confirmation. Routine creation does not.
 
@@ -381,7 +381,7 @@ No other phase rebases. `git pull --rebase` outside of the merge-initiative reci
 When `worktree: true` is set on an initiative, a git worktree is created as a sibling directory:
 
 - **Path**: `../<repo-basename>-<initiative-name>/` (sibling to project root)
-- **Created**: during initiative decompose or via `@ccpm worktree enable <name>`
+- **Created**: during initiative decompose or via `/ccpm worktree enable <name>`
 - **Scope**: one worktree per initiative — all epics share it
 - **Creation**: `git worktree add ../<repo-basename>-<name> initiative/<name>` (no remote interaction needed; unconditional with respect to `ONLINE`)
 

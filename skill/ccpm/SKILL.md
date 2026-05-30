@@ -1,6 +1,6 @@
 ---
 name: ccpm
-description: "CCPM - spec-driven project management: Initiative → Epic → GitHub Issues → parallel agents → shipped code. Always activate when the user prefixes a message with '@ccpm'. Use this skill for anything in the software delivery lifecycle: writing an initiative ('write an initiative for X', 'create an initiative for X', 'new initiative for X'), decomposing an initiative into multiple epics ('decompose the X initiative into epics', 'break X into epics'), start all epics ('start all epics for X', 'run all epics'), merge initiative ('merge the X initiative'), cancel initiative ('cancel initiative X', 'abandon X'), add epic to initiative ('add epic Y to X'), parsing an initiative into an epic, decomposing an epic into tasks, syncing to GitHub ('sync the X epic', 'push tasks to github'), starting work on an issue ('start working on issue N', 'let's work on issue N'), analyzing parallel work streams, running standups ('standup', 'run the standup'), checking status ('what's next', 'what's blocked', 'what are we working on'), closing issues, merging an epic, pushing an initiative branch for GitHub PR review ('push the X initiative for review', 'push X for review'), or addressing review comments on the PR ('address review comments for X', 'address the review comments'). Use ccpm when the user mentions initiatives, epics, tasks, or shipping features with traceability. Do NOT use for: debugging code, writing tests, reviewing PRs, generic planning without delivery context, or raw GitHub issue/PR operations."
+description: "CCPM - spec-driven project management: Initiative → Epic → GitHub Issues → parallel agents → shipped code. Always activate when the user prefixes a message with '/ccpm'. Use this skill for anything in the software delivery lifecycle: writing an initiative ('write an initiative for X', 'create an initiative for X', 'new initiative for X'), decomposing an initiative into multiple epics ('decompose the X initiative into epics', 'break X into epics'), start all epics ('start all epics for X', 'run all epics'), merge initiative ('merge the X initiative'), cancel initiative ('cancel initiative X', 'abandon X'), add epic to initiative ('add epic Y to X'), parsing an initiative into an epic, decomposing an epic into tasks, syncing to GitHub ('sync the X epic', 'push tasks to github'), starting work on an issue ('start working on issue N', 'let's work on issue N'), analyzing parallel work streams, running standups ('standup', 'run the standup'), checking status ('what's next', 'what's blocked', 'what are we working on'), closing issues, merging an epic, pushing an initiative branch for GitHub PR review ('push the X initiative for review', 'push X for review'), or addressing review comments on the PR ('address review comments for X', 'address the review comments'). Use ccpm when the user mentions initiatives, epics, tasks, or shipping features with traceability. Do NOT use for: debugging code, writing tests, reviewing PRs, generic planning without delivery context, or raw GitHub issue/PR operations."
 ---
 
 # CCPM - Claude Code Project Manager
@@ -93,22 +93,22 @@ Use the LLM for work that requires reasoning: writing Initiatives, analyzing par
 
 ## Explicit Invocation
 
-Prefix any message with `@ccpm` to explicitly route it to CCPM, bypassing intent detection:
+Prefix any message with `/ccpm` to explicitly route it to CCPM, bypassing intent detection:
 
 ```
-@ccpm plan sorting archived tasks last to first
-@ccpm what's the status?
-@ccpm decompose the auth epic into tasks
+/ccpm plan sorting archived tasks last to first
+/ccpm what's the status?
+/ccpm decompose the auth epic into tasks
 ```
 
-The `@ccpm` prefix guarantees CCPM handles the request, even for phrases that might otherwise trigger other tools (e.g., planning mode).
+The `/ccpm` prefix guarantees CCPM handles the request, even for phrases that might otherwise trigger other tools (e.g., planning mode).
 
 ---
 
 ## Quick Reference
 
 ```
-Plan a feature:     "create an initiative for X" or "@ccpm plan X"
+Plan a feature:     "create an initiative for X" or "/ccpm plan X"
 Parse to epic:      "turn the X initiative into an epic"
 Decompose:          "break down the X epic into tasks"
 Sync to GitHub:     "push the X epic to GitHub"
@@ -121,7 +121,7 @@ Start all epics:    "start all epics for X" or "run all epics"
 Merge initiative:   "merge the X initiative"
 Cancel initiative:  "cancel initiative X" / "abandon X"
 Add epic:           "add epic Y to X" / "new epic Y for X"
-Enable worktree:  "worktree enable X" or "@ccpm worktree enable X"
+Enable worktree:  "worktree enable X" or "/ccpm worktree enable X"
 Report a bug:       "found a bug in issue 42" / "testing issue 42 revealed X"
 Push for review:    "push the X initiative for review"           (requires gh)
 Address comments:   "address review comments for X"               (requires gh)

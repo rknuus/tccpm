@@ -89,7 +89,7 @@ parallelization_factor: <1.0-5.0>
 3. Find local task file (as above).
 4. Check for analysis file: `.ccpm/initiatives/<initiative>/<epic>/<N>-analysis.md` — if missing, run analysis first (or do both in sequence: analyze then start).
 5. **Resolve working directory**: use `WORKTREE_ACTIVE` from the mode detection.
-   - If `WORKTREE_ACTIVE=true`: verify worktree exists at `../<repo-basename>-<initiative-name>/`. Use that directory as the working directory for agents. If missing: "❌ Worktree not found. Run: `@ccpm worktree enable <initiative-name>`"
+   - If `WORKTREE_ACTIVE=true`: verify worktree exists at `../<repo-basename>-<initiative-name>/`. Use that directory as the working directory for agents. If missing: "❌ Worktree not found. Run: `/ccpm worktree enable <initiative-name>`"
    - If `WORKTREE_ACTIVE=false`: verify initiative branch is checked out via `git branch --show-current`. If not, check it out. Agents work in the project root.
 
 ### Process

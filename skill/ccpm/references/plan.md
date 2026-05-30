@@ -100,7 +100,7 @@ Based on the assessment, recommend one tier:
 
 | Tier | When to recommend | Command |
 |------|-------------------|---------|
-| **initiative-go** | Very small, super-clear scope. 1-2 user stories, single deliverable, no cross-subsystem complexity. May produce as few as 1 task. | `@ccpm initiative-go <name>` |
+| **initiative-go** | Very small, super-clear scope. 1-2 user stories, single deliverable, no cross-subsystem complexity. May produce as few as 1 task. | `/ccpm initiative-go <name>` |
 | **Single-epic parse** | Medium scope. Cohesive single deliverable but needs task-level planning and review. 3-5 user stories, moderate complexity. | `parse the <name> initiative` |
 | **Multi-epic decompose** | Large scope. Multiple distinct deliverables or subsystems, many user stories, complex dependencies between areas. | `decompose the <name> initiative into epics` |
 
@@ -109,7 +109,7 @@ Present the recommendation concisely — one line of assessment, then the option
 ```
 **Recommendation**: <one-line assessment, e.g., "Small, focused initiative — single deliverable with clear scope">
 
-  ➤ @ccpm initiative-go <name>                       ← recommended
+  ➤ /ccpm initiative-go <name>                       ← recommended
     parse the <name> initiative
     decompose the <name> initiative into epics
     let's revise the <name> initiative

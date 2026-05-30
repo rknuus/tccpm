@@ -134,7 +134,7 @@ Task-file commits in this phase use the same `CCPM_TRACKED`-gated [File-Based Co
 
 If any phase fails, stop and report what completed successfully. Earlier phases' artifacts (epic files, task files) remain intact for manual retry.
 
-**Do NOT merge to main.** The initiative branch is the final output of initiative-go. The user reviews the result and decides when to merge via `@ccpm merge initiative <name>`.
+**Do NOT merge to main.** The initiative branch is the final output of initiative-go. The user reviews the result and decides when to merge via `/ccpm merge initiative <name>`.
 
 ### Post-completion
 
@@ -409,7 +409,7 @@ Epic added to initiative: <name>
 
 ## Worktree Enable
 
-**Trigger**: User wants to enable a worktree for an existing initiative, or says "@ccpm worktree enable <name>".
+**Trigger**: User wants to enable a worktree for an existing initiative, or says "/ccpm worktree enable <name>".
 
 ### Preflight
 - **Root check**: Run `git rev-parse --show-toplevel` and confirm the working directory is the project root. If not, `cd` to the root before proceeding.

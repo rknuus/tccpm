@@ -27,6 +27,8 @@
 
 set -eu
 
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
 _self_dir="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "$_self_dir/lib/coordinator-lib.sh"
@@ -67,7 +69,8 @@ _epic="${_positional[1]}"
 
 _epic_file=".ccpm/initiatives/$_initiative/$_epic/epic.md"
 if [ ! -f "$_epic_file" ]; then
-  echo "ccpm-commit-epic: epic file not found: $_epic_file" >&2
+  _repo_root="$(git rev-parse --show-toplevel)"
+  echo "ccpm-commit-epic: epic file not found: $_repo_root/$_epic_file (repo root: $_repo_root)" >&2
   exit 1
 fi
 

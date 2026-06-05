@@ -28,6 +28,8 @@
 
 set -eu
 
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
 _self_dir="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "$_self_dir/lib/coordinator-lib.sh"

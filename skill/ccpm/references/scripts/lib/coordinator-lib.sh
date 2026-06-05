@@ -28,7 +28,9 @@
 # Caller env:
 #   COORD_OUTPUT_MODE=json   Switches coord_status to JSON form.
 #
-# IMPORTANT: Caller must cd to the git project root before sourcing.
+# NOTE: Each coordinator self-anchors to the git project root via
+# `cd "$(git rev-parse --show-toplevel)"` as its first executable line.
+# Callers may invoke a coordinator from any cwd inside the working tree.
 
 # Resolve the parent of this library's directory so it can locate the
 # coordinator scripts and ccpm-detect-mode.sh, which live one level up

@@ -27,6 +27,8 @@
 
 set -eu
 
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
 _self_dir="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck disable=SC1091
 source "$_self_dir/lib/coordinator-lib.sh"
@@ -51,7 +53,8 @@ fi
 
 _initiative_file=".ccpm/initiatives/$_initiative/$_initiative.md"
 if [ ! -f "$_initiative_file" ]; then
-  echo "ccpm-push-for-review: initiative file not found: $_initiative_file" >&2
+  _repo_root="$(git rev-parse --show-toplevel)"
+  echo "ccpm-push-for-review: initiative file not found: $_repo_root/$_initiative_file (repo root: $_repo_root)" >&2
   exit 1
 fi
 
